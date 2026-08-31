@@ -1,0 +1,16 @@
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Editor
+.idea/
+.vscode/
+*.swp
+
+# Node（插件代码若使用 npm）
+node_modules/
+npm-debug.log*
+
+# Logs
+*.log
