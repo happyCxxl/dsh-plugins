@@ -131,8 +131,10 @@ DSH 官方存储栈（`@deepseek-ai/dsh-storage-sqlite`）是给 DSH 内部服�
 plugins/dsh-sqlite/
 ├── package.json       # dsh.bundle.patch → cordis.patch.yml；engines: node >= 22.5
 ├── cordis.patch.yml   # - insert: [{ id: dsh-sqlite, name: dsh-sqlite }]
-├── lib/index.js       # apply(ctx)：懒打开引擎、注册五个工具
+├── lib/index.js       # apply(ctx)：注册五个工具 + 挂载自测（DSH_PLUGIN_SELFTEST=1）
+├── lib/tools.js       # 五个工具定义（纯对象，不依赖 DSH 包，可独立冒烟测试）
 ├── lib/engine.js      # 所有 node:sqlite 调用隔离于此（实验性 API，将来可整体替换 better-sqlite3）
+├── scripts/smoke.mjs  # 本地冒烟测试（files 白名单外，不随包发布）
 └── README.md          # 安装/使用说明
 ```
 

@@ -1,0 +1,47 @@
+{
+  "name": "dsh-sqlite",
+  "version": "0.1.0",
+  "description": "DSH plugin: persistent SQLite tools for the agent (sqlite_query / sqlite_exec / sqlite_tables / sqlite_export / sqlite_import) — zero runtime deps beyond Node 22 node:sqlite.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/tools.js",
+    "lib/engine.js",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.5"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-tools": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-llm": "^0.1.0-rc.6"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "keywords": [
+    "dsh-plugin",
+    "sqlite",
+    "database",
+    "persistence",
+    "sync",
+    "deepseek-harness"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/happyCxxl/dsh-plugins.git",
+    "directory": "plugins/dsh-sqlite"
+  }
+}

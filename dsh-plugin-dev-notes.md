@@ -35,6 +35,7 @@
 | D12 | 安装通道三种：npm / git(`github:user/repo#sha`) / tarball；但 `dsh plugin add github:` 在部分版本**只加依赖、不 append 到 profile bundles**（[#656](https://github.com/deepseek-ai/deepseek-harness/discussions/656)） | 发布前三种通道至少实测一种；装完**必须重启**（bundle 层只在 boot 时读取） |
 | D13 | 验证要闭环：静态检查（patch 合法性、package.json 元数据、files 白名单）+ **干净 DSH_HOME profile 冒烟**（安装→启动→卸载），或 mock llm + headless + dump 审计（[#462](https://github.com/deepseek-ai/deepseek-harness/discussions/462)） | 现成工具链：`dsh-plugin-guide` 的 `dsh-plugin-dev new/check/verify` |
 | D14 | **Windows 是重灾区**（60+ 帖）：中文路径截断家族（readUtf16 U+XX00）、koffi 崩溃、pwsh 调用假死、端口 3080 落 Hyper-V 保留区间、大小写不敏感路径冲突、ReplaceFileW EIO | 自己写路径/文件名逻辑别假设 POSIX；处理中文/空格路径；测试 Windows 用例 |
+| D15 | **本地目录安装 = junction 链接**：`dsh plugin add <目录>` 底层 pnpm 装成 `link:` + junction；源目录一旦改名/移动就成悬空链接，boot 解析不到包直接报 `cannot resolve profile bundle`、整机启动失败（本仓库实战踩坑） | 本地装用 **tarball 通道**（真实目录拷贝，无链接）；若用 link 方式，源目录改名/移动后必须重新 add；悬空链接用 `cmd /c rmdir <链接路径>` 清理（只删链接，不碰目标） |
 
 ## E. 生态与发布
 
