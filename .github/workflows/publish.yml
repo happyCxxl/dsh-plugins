@@ -4,9 +4,9 @@ on:
   push:
     tags:
       - 'dsh-sqlite-v*'
+  workflow_dispatch: {}
 
 permissions:
-  id-token: write # OIDC：npm Trusted Publishing 用，无需任何令牌
   contents: read
 
 jobs:
@@ -20,4 +20,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - name: Publish @cxxl/dsh-sqlite
         working-directory: plugins/dsh-sqlite
-        run: npm publish --access public --provenance
+        run: npm publish --access public
+        env:
+          # npm Automation 令牌（CI 专用，可绕过 2FA；存入仓库 Secrets）
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
