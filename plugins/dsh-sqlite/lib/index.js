@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { toolDefs } from './tools.js'
 import * as engine from './engine.js'
 
-export const name = 'dsh-sqlite'
+export const name = '@cxxl/dsh-sqlite'
 export const inject = ['tools']
 
 export function apply(ctx) {

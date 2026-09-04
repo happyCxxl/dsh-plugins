@@ -3,4 +3,4 @@
 # Row id must stay unique within the profile's bundle layer.
 - insert:
     - id: dsh-sqlite
-      name: dsh-sqlite
+      name: '@cxxl/dsh-sqlite'

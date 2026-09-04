@@ -1,5 +1,5 @@
 {
-  "name": "dsh-sqlite",
+  "name": "@cxxl/dsh-sqlite",
   "version": "0.1.0",
   "description": "DSH plugin: persistent SQLite tools for the agent (sqlite_query / sqlite_exec / sqlite_tables / sqlite_export / sqlite_import) — zero runtime deps beyond Node 22 node:sqlite.",
   "type": "module",

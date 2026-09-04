@@ -130,7 +130,7 @@ DSH 官方存储栈（`@deepseek-ai/dsh-storage-sqlite`）是给 DSH 内部服�
 ```
 plugins/dsh-sqlite/
 ├── package.json       # dsh.bundle.patch → cordis.patch.yml；engines: node >= 22.5
-├── cordis.patch.yml   # - insert: [{ id: dsh-sqlite, name: dsh-sqlite }]
+├── cordis.patch.yml   # - insert: [{ id: dsh-sqlite, name: '@cxxl/dsh-sqlite' }]
 ├── lib/index.js       # apply(ctx)：注册五个工具 + 挂载自测（DSH_PLUGIN_SELFTEST=1）
 ├── lib/tools.js       # 五个工具定义（纯对象，不依赖 DSH 包，可独立冒烟测试）
 ├── lib/engine.js      # 所有 node:sqlite 调用隔离于此（实验性 API，将来可整体替换 better-sqlite3）
@@ -142,7 +142,7 @@ plugins/dsh-sqlite/
 
 ## 8. 装载与调用机制
 
-- 安装：`dsh plugin --profile <name> add dsh-sqlite`（npm 发布后）；patch 行插入 profile 组合层，重启后生效；该 profile 下会话的工具清单获得五个工具（以实测为准）
+- 安装：`dsh plugin --profile <name> add @cxxl/dsh-sqlite`（npm 发布后）；patch 行插入 profile 组合层，重启后生效；该 profile 下会话的工具清单获得五个工具（以实测为准）
 - 调用：模型按需自主调用（函数调用机制），**非后台自动存档**——没有对话就没有动作
 - 可靠性杠杆：工具描述写明使用时机（弱杠杆）；将来如需"确定必存"，可在预设/系统提示词注入显式规则（强杠杆，v1 不做）
 

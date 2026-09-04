@@ -5,7 +5,7 @@
 ## 安装
 
 ```powershell
-dsh plugin --profile web add dsh-sqlite
+dsh plugin --profile web add @cxxl/dsh-sqlite
 # 装完重启一次（bundle 层只在启动时读取）
 ```
 
