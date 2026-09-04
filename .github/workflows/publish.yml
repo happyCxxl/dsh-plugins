@@ -1,0 +1,23 @@
+name: publish-dsh-sqlite
+
+on:
+  push:
+    tags:
+      - 'dsh-sqlite-v*'
+
+permissions:
+  id-token: write # OIDC：npm Trusted Publishing 用，无需任何令牌
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+      - name: Publish @cxxl/dsh-sqlite
+        working-directory: plugins/dsh-sqlite
+        run: npm publish --access public --provenance
