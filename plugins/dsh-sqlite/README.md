@@ -45,6 +45,10 @@ dsh plugin --profile web add @cxxl/dsh-sqlite
 - `to` / `from` 建议使用绝对路径
 - 部分导出时注意表间外键引用关系
 
+## 稳定触发（v1.2）
+
+插件向每个会话注入一段常驻提示词规则（约 40 token/回合）：用户要求"记住/记录/跟踪/保存"或表达"以后查/对比/统计"意图时，使用 sqlite 工具而非文本文件。规则不覆盖模型判断，最终决策权在模型。
+
 ## 引擎
 
 Node 内置 `node:sqlite`（实验性，Node ≥ 22.5），零原生依赖；所有引擎调用隔离在 `lib/engine.js`，可整体替换为 better-sqlite3 而不动其余代码。

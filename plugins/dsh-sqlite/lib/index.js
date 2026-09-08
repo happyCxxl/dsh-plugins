@@ -8,7 +8,7 @@ import { toolDefs } from './tools.js'
 import * as engine from './engine.js'
 
 export const name = '@cxxl/dsh-sqlite'
-export const inject = ['tools', 'webServer']
+export const inject = ['tools', 'webServer', 'systemPrompt']
 
 function sendJson(res, code, payload) {
   const body = JSON.stringify(payload)
@@ -67,12 +67,25 @@ function registerPanelRoutes(ctx) {
   }, 'dsh-sqlite panel routes')
 }
 
+// v1.2：常驻短规则注入——把"持久化场景 → sqlite 工具"的触发率推向接近确定。
+// 机制依据：官方 dsh-plan-mode 的 systemPrompt.section 先例（DESIGN.md 第 14 节）。
+function registerPersistenceRule(ctx) {
+  const dispose = ctx.systemPrompt.section({
+    name: 'dsh-sqlite:persistence-rule',
+    order: 1000,
+    text: '持久化规则：当用户要求记住、记录、跟踪、保存结构化数据，或表达"以后还要查/对比/统计"的意图时，使用 sqlite_exec（写）与 sqlite_query（读）工具，不要用普通文本文件替代数据库；不确定库里有什么时先调 sqlite_tables。',
+  })
+  console.log('[dsh-sqlite] persistence rule section registered (order 1000)')
+  ctx.effect(() => dispose, 'dsh-sqlite persistence rule')
+}
+
 export function apply(ctx) {
   for (const key of Object.keys(toolDefs)) {
     ctx.tools.register(defineTool(toolDefs[key]))
   }
   ctx.effect(() => () => engine.closeAll())
   registerPanelRoutes(ctx)
+  registerPersistenceRule(ctx)
 
   // 挂载自测：DSH_PLUGIN_SELFTEST=1 时在临时数据目录跑一遍真实执行管线。
   if (process.env.DSH_PLUGIN_SELFTEST === '1') void selfTest(ctx)
