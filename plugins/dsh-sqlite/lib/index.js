@@ -1,11 +1,12 @@
 // index.js — 插件入口：注册五个工具 + 可选挂载自测。
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import { CallId } from '@deepseek-ai/dsh-llm'
+import { CallId, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { toolDefs } from './tools.js'
 import * as engine from './engine.js'
+import { COLLAB_RULE, createCoordination, frame, onPostExecute, preStepTexts } from './coordination.js'
 
 export const name = '@cxxl/dsh-sqlite'
 export const inject = ['tools', 'webServer', 'systemPrompt']
@@ -73,10 +74,43 @@ function registerPersistenceRule(ctx) {
   const dispose = ctx.systemPrompt.section({
     name: 'dsh-sqlite:persistence-rule',
     order: 1000,
-    text: '持久化规则：当用户要求记住、记录、跟踪、保存结构化数据，或表达"以后还要查/对比/统计"的意图时，使用 sqlite_exec（写）与 sqlite_query（读）工具，不要用普通文本文件替代数据库；不确定库里有什么时先调 sqlite_tables。',
+    text: '持久化规则：当用户要求记住、记录、跟踪、保存结构化数据，或表达"以后还要查/对比/统计"的意图时，使用 sqlite_exec（写）与 sqlite_query（读）工具，不要用普通文本文件替代数据库；不确定库里有什么时先调 sqlite_tables。' + COLLAB_RULE,
   })
   console.log('[dsh-sqlite] persistence rule section registered (order 1000)')
   ctx.effect(() => dispose, 'dsh-sqlite persistence rule')
+}
+
+// v2：跨会话协作感知（DESIGN.md 第 15 节）。观察者语义：绝不修改执行链路。
+function registerCoordination(ctx) {
+  const coord = createCoordination()
+  const names = new Set()
+  try {
+    for (const f of engine.listDbFiles()) {
+      if (f.name !== 'agent.db') names.add(f.name.replace(/\.db$/, ''))
+    }
+  } catch { /* 启动快照失败则按空处理 */ }
+  coord.knownDbs = names
+
+  ctx.on('tools/post-execute', (exec, result, next) => {
+    try { onPostExecute(coord, exec, result) } catch { /* 观察者绝不抛 */ }
+    return next()
+  })
+
+  ctx.on('agent/pre-step', async (payload, next) => {
+    const decision = await next()
+    if (decision === undefined || decision.kind === 'reject') return decision
+    try {
+      const texts = preStepTexts(coord, payload.agent, engine)
+      if (texts.length === 0) return decision
+      const msgs = texts.map((text) => createUserMessage({
+        content: [{ type: 'text', text: frame(text) }],
+        source: { kind: 'plugin', plugin: 'dsh-sqlite' },
+      }))
+      return { ...decision, messages: [...msgs, ...decision.messages] }
+    } catch {
+      return decision
+    }
+  })
 }
 
 export function apply(ctx) {
@@ -86,6 +120,7 @@ export function apply(ctx) {
   ctx.effect(() => () => engine.closeAll())
   registerPanelRoutes(ctx)
   registerPersistenceRule(ctx)
+  registerCoordination(ctx)
 
   // 挂载自测：DSH_PLUGIN_SELFTEST=1 时在临时数据目录跑一遍真实执行管线。
   if (process.env.DSH_PLUGIN_SELFTEST === '1') void selfTest(ctx)

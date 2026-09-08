@@ -382,3 +382,19 @@ export function tablePreview(dbName, table, limit, signal) {
   })
   return { table: name, columns, rows: clean, truncated: rows.length >= cap }
 }
+
+// 读取库内 meta 约定表（label/description/table:<名> 键值对）；无表/读失败返回空对象。
+export function readDbMeta(dbName, signal) {
+  assertNotAborted(signal)
+  const { file } = dbFile(dbName)
+  if (!existsSync(file)) return {}
+  const { db } = openDb(dbName)
+  const out = {}
+  try {
+    const rows = db.prepare('SELECT key, value FROM meta').all()
+    for (const r of rows) {
+      if (r.key !== undefined && r.value !== undefined) out[String(r.key)] = String(r.value)
+    }
+  } catch { /* 无 meta 表：返回空 */ }
+  return out
+}

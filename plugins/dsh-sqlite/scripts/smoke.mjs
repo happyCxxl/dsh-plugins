@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { toolDefs } from '../lib/tools.js'
 import * as engine from '../lib/engine.js'
+import { createCoordination, onPostExecute, preStepTexts } from '../lib/coordination.js'
 
 const dir = mkdtempSync(join(tmpdir(), 'dsh-sqlite-smoke-'))
 process.env.DSH_SQLITE_DATA_DIR = dir
@@ -96,6 +97,28 @@ const pvBad = (() => { try { engine.tablePreview('default', 'no_such_table', 50)
 check('tablePreview 拒绝不存在表', pvBad.includes('表不存在'), pvBad)
 const pvEvil = (() => { try { engine.tablePreview('../evil', 'preview_t', 50); return 'NO-THROW' } catch (e) { return e.message } })()
 check('tablePreview 拒绝非法库名', pvEvil.includes('不合法'), pvEvil)
+
+// 15. v2 协作感知（coordination 纯逻辑 + 真实引擎）
+const coord = createCoordination()
+coord.knownDbs = new Set()
+const agentA = {}, agentB = {}
+onPostExecute(coord, { name: 'sqlite_exec', arguments: { db: 'proj' }, agent: agentA }, { isError: false })
+check('v2 写计数', coord.dbCounters.get('proj') === 1)
+let t = preStepTexts(coord, agentA, engine)
+check('v2 自己写的不提醒自己（仅盘点）', t.length === 1 && t[0].includes('协作库清单'))
+t = preStepTexts(coord, agentB, engine)
+check('v2 B 收到变化提醒', t.some((x) => x.includes('proj.db') && x.includes('1 处变化')))
+onPostExecute(coord, { name: 'sqlite_query', arguments: { db: 'proj' }, agent: agentB }, { isError: false })
+t = preStepTexts(coord, agentB, engine)
+check('v2 查询即确认后不再提醒', t.length === 0)
+onPostExecute(coord, { name: 'sqlite_exec', arguments: { db: 'default' }, agent: agentA }, { isError: false })
+check('v2 默认库不计数', coord.dbCounters.has('default') === false)
+onPostExecute(coord, { name: 'sqlite_exec', arguments: { db: 'proj' }, agent: agentA }, { isError: true })
+check('v2 失败写入不计数', coord.dbCounters.get('proj') === 1)
+onPostExecute(coord, { name: 'sqlite_exec', arguments: { db: 'brand-new' }, agent: agentB }, { isError: false })
+t = preStepTexts(coord, agentA, engine)
+check('v2 新库广播', t.some((x) => x.includes('brand-new.db') && x.includes('新协作库')))
+check('v2 readDbMeta 空表返回空对象', JSON.stringify(engine.readDbMeta('default')) === '{}')
 
 engine.closeAll()
 rmSync(dir, { recursive: true, force: true })
