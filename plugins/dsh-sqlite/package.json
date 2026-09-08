@@ -1,11 +1,12 @@
 {
   "name": "@cxxl/dsh-sqlite",
-  "version": "0.1.1",
-  "description": "DSH plugin: persistent SQLite tools for the agent (sqlite_query / sqlite_exec / sqlite_tables / sqlite_export / sqlite_import) — zero runtime deps beyond Node 22 node:sqlite.",
+  "version": "0.2.0",
+  "description": "DSH plugin: persistent SQLite tools for the agent (sqlite_query / sqlite_exec / sqlite_tables / sqlite_export / sqlite_import) plus a read-only table browser settings page — zero runtime deps beyond Node 22 node:sqlite.",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
     ".": "./lib/index.js",
+    "./client": "./lib/client.js",
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
   },
@@ -13,6 +14,7 @@
     "lib/index.js",
     "lib/tools.js",
     "lib/engine.js",
+    "lib/client.js",
     "cordis.patch.yml",
     "README.md",
     "LICENSE"
@@ -28,6 +30,10 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": []
     }
   },
   "keywords": [

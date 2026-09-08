@@ -8,13 +8,71 @@ import { toolDefs } from './tools.js'
 import * as engine from './engine.js'
 
 export const name = '@cxxl/dsh-sqlite'
-export const inject = ['tools']
+export const inject = ['tools', 'webServer']
+
+function sendJson(res, code, payload) {
+  const body = JSON.stringify(payload)
+  res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
+  res.end(body)
+}
+
+function queryOf(req) {
+  return Object.fromEntries(new URL(req.url ?? '/', 'http://x').searchParams.entries())
+}
+
+// 面板只读 API：三个 HTTP 路由（与页面同源，client 直接 fetch）。
+// webServer 声明为硬依赖（inject），cordis 会等服务就绪后再挂载本插件。
+function registerPanelRoutes(ctx) {
+  const webServer = ctx.webServer
+  ctx.effect(() => {
+    const disposers = [
+      webServer.register({
+        kind: 'exact',
+        path: '/dsh-sqlite-api/list-dbs',
+        handler: async (req, res) => {
+          try {
+            sendJson(res, 200, { ok: true, dbs: engine.listDbFiles() })
+          } catch (err) {
+            sendJson(res, 400, { ok: false, error: (err && err.message) || String(err) })
+          }
+        },
+      }),
+      webServer.register({
+        kind: 'exact',
+        path: '/dsh-sqlite-api/tables',
+        handler: async (req, res) => {
+          try {
+            const q = queryOf(req)
+            sendJson(res, 200, { ok: true, ...engine.listTables(q.db ?? 'default') })
+          } catch (err) {
+            sendJson(res, 400, { ok: false, error: (err && err.message) || String(err) })
+          }
+        },
+      }),
+      webServer.register({
+        kind: 'exact',
+        path: '/dsh-sqlite-api/preview',
+        handler: async (req, res) => {
+          try {
+            const q = queryOf(req)
+            sendJson(res, 200, { ok: true, ...engine.tablePreview(q.db ?? 'default', q.table, 50) })
+          } catch (err) {
+            sendJson(res, 400, { ok: false, error: (err && err.message) || String(err) })
+          }
+        },
+      }),
+    ]
+    console.log('[dsh-sqlite] panel routes registered: /dsh-sqlite-api/list-dbs|tables|preview')
+    return () => { for (const d of disposers) d() }
+  }, 'dsh-sqlite panel routes')
+}
 
 export function apply(ctx) {
   for (const key of Object.keys(toolDefs)) {
     ctx.tools.register(defineTool(toolDefs[key]))
   }
   ctx.effect(() => () => engine.closeAll())
+  registerPanelRoutes(ctx)
 
   // 挂载自测：DSH_PLUGIN_SELFTEST=1 时在临时数据目录跑一遍真实执行管线。
   if (process.env.DSH_PLUGIN_SELFTEST === '1') void selfTest(ctx)

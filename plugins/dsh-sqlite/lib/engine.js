@@ -349,3 +349,36 @@ export function importFromFile(dbName, from, signal) {
   db.exec(text)
   return { path: resolve(src), statements: stmts.length, bytes: st.size }
 }
+
+// 面板只读数据源：指定表的前 N 行（硬上限 50），返回 JSON 安全的结构化数据。
+export function tablePreview(dbName, table, limit, signal) {
+  assertNotAborted(signal)
+  const name = String(table ?? '')
+  if (name === '') throw new Error('table 参数为空')
+  const existing = allTableNames(dbName, signal)
+  if (!existing.includes(name)) {
+    throw new Error(`表不存在：${name}（现有表：${existing.join(', ') || '无'}）`)
+  }
+  const cap = Math.max(1, Math.min(50, Number.isFinite(limit) ? Math.floor(limit) : 50))
+  const { db } = openDb(dbName)
+  const prepared = db.prepare(`SELECT * FROM ${quoteIdent(name)} LIMIT ${cap}`)
+  const rows = prepared.all()
+  let columns = []
+  try {
+    const raw = prepared.columns()
+    if (Array.isArray(raw) && raw.length > 0) columns = raw.map((c) => (typeof c === 'string' ? c : c.name))
+  } catch { /* older node fallback */ }
+  if (columns.length === 0 && rows.length > 0) columns = Object.keys(rows[0])
+  const clean = rows.map((r) => {
+    const o = {}
+    for (const c of columns) {
+      const v = r[c]
+      o[c] = v === undefined || v === null ? null
+        : v instanceof Uint8Array ? '<blob>'
+        : typeof v === 'bigint' ? String(v)
+        : v
+    }
+    return o
+  })
+  return { table: name, columns, rows: clean, truncated: rows.length >= cap }
+}

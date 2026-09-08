@@ -155,8 +155,9 @@ plugins/dsh-sqlite/
 
 ## 10. 路线图
 
-- **v1**：通用 SQL 工具 + 跨机器同步（本文档）
-- **v1.1 候选**：表浏览面板、可选的提示词规则注入
+- **v1**：通用 SQL 工具 + 跨机器同步（已发布 0.1.1）
+- **v1.1**：表浏览面板——人类只读浏览器（已实现并本地验证，待发布 0.2.0；设计见第 13 节）
+- **v1.2**：稳定触发规则注入（设计见第 14 节）
 - **v2（独立插件）**：跨会话信箱——消息表 + 收发工具 + 开场未读注入（半自主通信）
 
 ## 11. 开发与发布
@@ -178,3 +179,97 @@ plugins/dsh-sqlite/
 - 调研修正（见 `dsh-plugin-dev-notes.md`）：依赖声明 peerDependencies（防双副本 Symbol 分裂）；工具描述禁 `{{...}}`；路径解析用 os.homedir()（防中文/空格）；发布前干净 profile 冒烟测试
 - 引擎：node:sqlite（实验性，隔离在 engine.js，可随时整体替换）
 - 提交邮箱：`cl152556563887@gmail.com`（本仓库级 git 身份，不影响公司 GitLab 配置）
+
+## 13. v1.1 设计：表浏览面板（人类只读浏览器）
+
+> 状态：已实现（冒烟 23 项全绿、面板本地验证通过），待发布 0.2.0。目标：人类不用通过模型转述，直接在设置页浏览数据库。
+
+### 挂载点（依据 Slot 实查）
+
+- `settings.section`（list，root scope）：注册协议 `{id, order, label}`，replaceRisk=none——官方"完整内容区"推荐位，与 studio/mgr 等插件一致
+- 注册 id：`dsh-sqlite-browser`；label：`SQLite 数据库`
+
+### 功能范围
+
+- 库选择：默认库 agent.db + 各命名库（`~/.dsh/data/*.db`）
+- 表列表：表名、列数、行数；quick_check 完整性状态
+- 表详情：列定义（名/类型/PK/NOT NULL）+ 数据预览（前 50 行，表格渲染）
+- 刷新按钮
+- **明确不做**：面板上的任何写操作（人类编辑/删行）——写仍由模型工具完成，安全面最小
+
+### 架构
+
+- **Host**（lib/index.js）：3 个只读 HTTP 路由（`webServer.register`，`{kind:'exact', path, handler(req,res)}`，与页面同源；依据 dsh-host-webserver 实查的契约）：
+  - `GET /dsh-sqlite-api/list-dbs` → 库文件清单（复用 `engine.listDbFiles`）
+  - `GET /dsh-sqlite-api/tables?db=` → 指定库表列表 + 结构（复用 `engine.listTables`）
+  - `GET /dsh-sqlite-api/preview?db=&table=` → 指定表前 50 行（engine 新增 `tablePreview`：只读 SELECT + LIMIT）
+- **Client**（lib/client.js）：`window.__ModuleLoader__.load` 工厂模式（question-nav 范本，无需构建工具）；注册 settings.section 页面；`React.createElement` 纯 JS；`fetch` 拉数据；useEffect + 刷新按钮
+- **package.json**：`dsh.client: { platform: "web", inject: [] }`；exports 增 `./client` → `lib/client.js`；files 白名单增 `lib/client.js`；版本 **0.2.0**
+- **engine**：新增 `tablePreview(dbName, table, limit)`（硬上限 50 行，只读，JSON 安全输出）
+
+### 安全边界
+
+- 面板 RPC 全部只读（无写路径）；预览硬限 50 行；db 名走 `DB_NAME_RE`、表名走白名单校验
+- 面板不暴露任何写语句执行能力
+
+### 开发循环与测试
+
+- 迭代循环：tarball → `dsh plugin --profile web remove` + `add <tarball>` → 重启 DSH → 页面验证（bundle 层 boot 时读取，约 2 分钟/轮，代码尽量一次写对）
+- 测试点：设置页出现可打开；库/表/预览数据正确；quick_check 显示；空库/无表空态不报错；刷新正常；只读 RPC 冒烟（node 脚本）
+- 发布：npm 0.2.0（本地交互式流程）
+
+### 决策记录（v1.1）
+
+- 面板位置：独立设置页 `settings.section`（否决 shell.overlay 抽屉：工作量翻倍）
+- 范围：纯只读浏览器（人类写操作不做）
+- 预览行数硬上限 50；RPC 三方法；版本 0.2.0
+- 通信机制修正：宿主-页面用 `webServer` HTTP 路由 + fetch（否决 typert remote：zod+双端镜像过重）；webServer 声明为 inject 硬依赖（首次实现用 ctx.get 静默跳过导致路由 404，已修复）
+
+## 14. v1.2 设计：稳定触发规则注入
+
+> 状态：设计定稿（代码未动工）。目标：把"持久化场景 → 用 sqlite_* 工具"的触发率推到接近确定。
+
+### 调研依据（官方源码 + 社区头部插件，详见本会话调研）
+
+| 借鉴点 | 出处 | 采纳 |
+|---|---|---|
+| 规则分层注入（常驻短规则 / 条件长规则 / 用户层规则） | 官方 `dsh-plan-mode`（config.section 注入整段规则并声明覆盖工具描述）、`dsh-persona`、`dsh-agent-instructions`（AGENTS.md 持久注入） | ✅ 核心机制 |
+| 技能指针式按需加载（常驻一句话 + skill 全文按需） | 官方 cordis preset（persona 中 "Load the X skill before…"） | 备选，v1.2 不做 |
+| 观察-提醒-不干预（重复调用升级提醒，绝不否决） | 官方 `dsh-repeat-tool-reminder` | ❌ 我们无死循环痛点（confirm 拦截已兜底），范式记档 |
+| 工具面收缩 / 排序（每请求只给相关工具，schema token -80~90%） | 社区 `dsh-tool-folder`、`dsh-tool-router`（官方 seam：`system-prompt/assemble` waterfall） | ❌ 我们仅 5 个工具，收缩无意义 |
+| 场景 B（隐式需要）接受噪声、场景 C（必须保证）属用户层规则 | 官方无插件级解法（AGENTS.md/persona 属用户配置） | 接受，不越界 |
+
+### 机制
+
+- 注册一个 `systemPrompt.section`（官方 `dsh-plan-mode` 同款 API）：
+  - `name: 'dsh-sqlite:persistence-rule'`（唯一名，避免被预设同名遮蔽）
+  - `order: 1000`（排在 persona / 模式规则之后，靠近提示词尾部——位置越靠后模型注意力越强）
+  - 文本 1-2 行、**禁含 `{{...}}`**（section 文本经过严格变量插值，异常引用会抛错；本插件描述禁用模板字符的原则同样适用）
+- 服务依赖：`systemPrompt` 与 `webServer` 一样声明为 **inject 硬依赖**（防止挂载时序早于服务提供 → 静默失效的坑重演）
+
+### 规则文本（草案）
+
+```
+持久化规则：当用户要求记住、记录、跟踪、保存结构化数据，或表达"以后还要查/对比/统计"的意图时，
+使用 sqlite_exec（写）与 sqlite_query（读）工具，不要用普通文本文件替代数据库；不确定库里有什么时先调 sqlite_tables。
+```
+
+- 成本：每回合约 +40 token；换 A 类场景（用户明确表达）触发率趋近确定
+- 不覆盖模型判断：仍属"规则在场"，模型最终决定（与官方 plan-mode 的覆盖式声明不同——我们不声明覆盖，只增强）
+
+### 验证方法
+
+- 新会话连续 3-5 种措辞："记住 X"、"记录 X"、"以后我要对比"、"跟踪 X 的价格" → 观察是否自动调用 sqlite_exec（不点名工具）
+- 对照：注入前该场景的基线命中率
+- 回归：确认五个工具功能与面板不受影响；确认无 `{{}}` 相关装配错误（section 注册时抛错会导致挂载失败，冒烟需覆盖）
+
+### 版本与发布
+
+- 版本 **0.3.0**（与 v1.1 的 0.2.0 分离，或随 0.2.0 一起发——由发布时机定）
+- 发布流程同前（本地交互式 npm publish）
+
+### 决策记录（v1.2）
+
+- 采纳官方 `systemPrompt.section` 常驻短规则注入（plan-mode 先例）；不采纳工具面收缩/提醒干预（无对应痛点）
+- 场景 B 接受噪声、场景 C 留给用户层（AGENTS.md/preset），插件不越界
+- 技能指针式加载列为备选，v1.2 暂不做

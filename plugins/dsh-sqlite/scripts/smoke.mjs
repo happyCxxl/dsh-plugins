@@ -85,6 +85,18 @@ check('query 只读 PRAGMA', out.includes('name'), out.split('\n')[0])
 out = await run('query', { sql: 'PRAGMA journal_mode = WAL' })
 check('query 拒绝写 PRAGMA', out.includes('错误：'), out)
 
+// 14. tablePreview（面板只读数据源）
+await run('exec', { sql: "CREATE TABLE preview_t (id INTEGER PRIMARY KEY, txt TEXT); INSERT INTO preview_t VALUES (1, 'a'), (2, 'b');" })
+const pv = engine.tablePreview('default', 'preview_t', 50)
+check('tablePreview 列与行', pv.columns.includes('id') && pv.rows.length === 2 && pv.rows[0].id === 1 && pv.rows[0].txt === 'a', JSON.stringify(pv).slice(0, 100))
+check('tablePreview JSON 安全（无 BigInt）', JSON.stringify(pv).indexOf('"id":1') >= 0)
+const pvCap = engine.tablePreview('default', 'preview_t', 1)
+check('tablePreview 上限生效', pvCap.rows.length === 1 && pvCap.truncated === true)
+const pvBad = (() => { try { engine.tablePreview('default', 'no_such_table', 50); return 'NO-THROW' } catch (e) { return e.message } })()
+check('tablePreview 拒绝不存在表', pvBad.includes('表不存在'), pvBad)
+const pvEvil = (() => { try { engine.tablePreview('../evil', 'preview_t', 50); return 'NO-THROW' } catch (e) { return e.message } })()
+check('tablePreview 拒绝非法库名', pvEvil.includes('不合法'), pvEvil)
+
 engine.closeAll()
 rmSync(dir, { recursive: true, force: true })
 console.log(failed === 0 ? 'ALL PASS' : `${failed} FAILED`)
