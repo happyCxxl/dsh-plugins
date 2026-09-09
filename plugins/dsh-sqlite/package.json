@@ -23,6 +23,9 @@
   "engines": {
     "node": ">=22.5"
   },
+  "scripts": {
+    "prepublishOnly": "node ../../scripts/check-publish-files.mjs"
+  },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
     "@deepseek-ai/dsh-tools": "^0.1.0-rc.6",
