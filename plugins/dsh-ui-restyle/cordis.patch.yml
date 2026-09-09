@@ -1,0 +1,6 @@
+# dsh-ui-restyle bundle patch: 安装时把本包的行插入 profile 组合。
+# 安装：dsh plugin --profile <name> add <本包目录或 tgz>
+# 行 id 需在 profile 的 bundle 层内保持唯一。
+- insert:
+    - id: dsh-ui-restyle
+      name: dsh-ui-restyle

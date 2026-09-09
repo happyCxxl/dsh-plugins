@@ -1,0 +1,41 @@
+{
+  "name": "dsh-ui-restyle",
+  "version": "0.1.0",
+  "description": "DSH Web 执行过程优雅化插件：正文为阅读主线，正文之间的思考/工具/命令工作行折叠为单条时序摘要（内容全部保留、可搜索定位），并收紧执行区排版。",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.5"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": []
+    }
+  },
+  "keywords": [
+    "dsh-plugin",
+    "ui",
+    "chat",
+    "collapse",
+    "timeline",
+    "deepseek-harness"
+  ],
+  "license": "MIT"
+}
