@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-  id: 'dsh-ui-restyle',
+  id: '@cxxl/dsh-ui-restyle',
   factory: () => {
     var module = { exports: {} }
     var exports = module.exports
