@@ -10,6 +10,7 @@ import {
   existsSync,
   readdirSync,
   statSync,
+  rmSync,
 } from 'node:fs'
 
 export const MAX_SQL_LEN = 64 * 1024
@@ -397,4 +398,30 @@ export function readDbMeta(dbName, signal) {
     }
   } catch { /* 无 meta 表：返回空 */ }
   return out
+}
+
+// 删除整个命名库：关连接 + 删文件（含 -wal/-shm）。默认库不可删；需 confirm。
+export function removeDb(dbName, confirm, signal) {
+  assertNotAborted(signal)
+  if (confirm !== true) throw new Error('删除整个库属危险操作，请显式传 confirm: true 后重试')
+  const name = String(dbName ?? '')
+  if (name === '' || name === 'default') {
+    throw new Error('不允许删除默认库 agent.db；如需清空其内容，请用 sqlite_exec 对表执行 DROP（confirm: true）')
+  }
+  const { name: n, file } = dbFile(name)
+  const cached = openDbs.get(n)
+  if (cached !== undefined) {
+    try { cached.close() } catch { /* noop */ }
+    openDbs.delete(n)
+  }
+  for (const suffix of ['', '-wal', '-shm']) {
+    const p = file + suffix
+    if (!existsSync(p)) continue
+    try {
+      rmSync(p, { force: true })
+    } catch (err) {
+      throw new Error(`删除 ${suffix || '库文件'} 失败：${(err && err.message) || err}（文件可能被其他进程占用）`)
+    }
+  }
+  return { db: n, file }
 }

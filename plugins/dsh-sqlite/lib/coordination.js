@@ -2,6 +2,7 @@
 // 纯逻辑（不依赖 DSH 服务），可独立冒烟测试。观察者语义：绝不修改执行链路。
 const WRITE_TOOLS = new Set(['sqlite_exec'])
 const ACK_TOOLS = new Set(['sqlite_query', 'sqlite_tables'])
+const REMOVE_TOOLS = new Set(['sqlite_remove_db'])
 
 export function createCoordination() {
   return {
@@ -11,6 +12,7 @@ export function createCoordination() {
     cursors: new WeakMap(),         // Agent -> Map<db, 已确认计数>
     notifiedNewDbs: new WeakMap(),  // Agent -> Set<db>（已广播过新库事件的库）
     initialized: new WeakSet(),     // Agent -> 已做过盘点注入
+    dbTables: new Map(),            // db -> Set<表名>（提醒的表级提示，最多 8 个）
   }
 }
 
@@ -36,6 +38,25 @@ function markNewDbNotified(coord, agent, db) {
   notified.add(db)
 }
 
+// 从 SQL 中提取表名提示（启发式，非精确解析；仅用于提醒的"涉及表"）。
+function tableHintOf(sql) {
+  if (typeof sql !== 'string') return undefined
+  const create = /\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?["'`]?([A-Za-z_][A-Za-z0-9_]*)["'`]?/i.exec(sql)
+  if (create) return create[1]
+  const m = /\b(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM|ALTER\s+TABLE)\s+["'`]?([A-Za-z_][A-Za-z0-9_]*)["'`]?/i.exec(sql)
+  if (m) return m[1]
+  const from = /\bFROM\s+["'`]?([A-Za-z_][A-Za-z0-9_]*)["'`]?/i.exec(sql)
+  return from ? from[1] : undefined
+}
+
+// 删除库后的状态清理（游标不枚举——重建库时用计数回退语义兜底，见 preStepTexts）。
+export function onDbRemoved(coord, db) {
+  coord.dbCounters.delete(db)
+  coord.newDbs.delete(db)
+  coord.dbTables.delete(db)
+  if (coord.knownDbs !== null) coord.knownDbs.delete(db)
+}
+
 // post-execute 观察者：调用方负责 next()；本函数绝不抛错。
 export function onPostExecute(coord, exec, result) {
   const name = exec && exec.name
@@ -43,11 +64,21 @@ export function onPostExecute(coord, exec, result) {
   if (name === undefined || agent === undefined) return
   const db = dbOf(exec.arguments)
   if (db === 'default') return
+  const ok = result === undefined || result.isError !== true
+  if (REMOVE_TOOLS.has(name)) {
+    if (ok) onDbRemoved(coord, db)
+    return
+  }
   if (WRITE_TOOLS.has(name)) {
-    const ok = result === undefined || result.isError !== true
     if (!ok) return
     coord.dbCounters.set(db, (coord.dbCounters.get(db) ?? 0) + 1)
     advance(coord, agent, db) // 自己写的 = 自己知道
+    const hint = tableHintOf(exec.arguments && exec.arguments.sql)
+    if (hint !== undefined) {
+      let s = coord.dbTables.get(db)
+      if (s === undefined) { s = new Set(); coord.dbTables.set(db, s) }
+      if (s.size < 8) s.add(hint)
+    }
     if (coord.knownDbs !== null && !coord.knownDbs.has(db)) {
       coord.knownDbs.add(db)
       if (!coord.newDbs.has(db)) coord.newDbs.set(db, Date.now())
@@ -91,7 +122,8 @@ export const COLLAB_RULE = '协作规则：多会话并行协作时，协作数�
 export function inventoryText(engine) {
   const lines = inventoryLines(engine)
   const list = lines.length > 0 ? lines.join('\n') : '（当前无协作库）'
-  return '协作库清单：\n' + list + '\n' + COLLAB_RULE
+  // 协作规则已在每回合常驻的系统提示词中，此处不重复（避免噪音）。
+  return '协作库清单：\n' + list + '\n（协作规则见系统提示词中的常驻规则）'
 }
 
 // pre-step 提醒文本（含首回合盘点、增量变化、新库广播）。返回字符串数组，空 = 零注入。
@@ -105,8 +137,13 @@ export function preStepTexts(coord, agent, engine) {
   const pending = []
   for (const [db, count] of coord.dbCounters) {
     if (!m.has(db)) continue // 库亲和：从未触碰过的库不提醒变化（新库广播已覆盖"存在感"）
-    const seen = m.get(db)
-    if (seen < count) pending.push(`「${db}.db」自你上次查看后有 ${count - seen} 处变化`)
+    const raw = m.get(db)
+    const seen = raw > count ? 0 : raw // 库被删除重建后计数回退 → 视为未看过（全量提醒一次）
+    if (seen < count) {
+      const tables = coord.dbTables.get(db)
+      const hint = tables && tables.size > 0 ? `（涉及表：${[...tables].join('、')}）` : ''
+      pending.push(`「${db}.db」自你上次查看后有 ${count - seen} 处变化${hint}`)
+    }
   }
   if (pending.length > 0) {
     texts.push('协作库有新变化：' + pending.join('；') + '。需要对齐时用 sqlite_tables / sqlite_query 查看。')

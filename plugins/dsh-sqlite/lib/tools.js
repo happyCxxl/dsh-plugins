@@ -165,4 +165,29 @@ export const toolDefs = {
       return `导入完成：执行 ${r.statements} 条语句（${r.bytes} 字节）← ${r.path}`
     }),
   },
+
+  removeDb: {
+    name: 'sqlite_remove_db',
+    description:
+      '删除整个命名库（关闭连接并删除库文件，含全部表与数据，不可恢复）。' +
+      '何时用：用户要求删除/清理某个命名库，或某协作库内容整体作废要重来时。' +
+      '必须显式传 confirm: true 才执行；默认库 agent.db 不可删除（清空其内容请对表用 DROP）。' +
+      '删除后其他会话不会再收到该库的协作提醒。',
+    parameters: {
+      db: {
+        type: 'string',
+        required: true,
+        description: '要删除的命名库（不允许 default）。',
+      },
+      confirm: {
+        type: 'boolean',
+        description: '危险操作：必须为 true。',
+      },
+    },
+    output: { schema: { type: 'string' }, render: renderText },
+    execute: catchText(async (args, exec) => {
+      const r = engine.removeDb(args.db, args.confirm, exec && exec.signal)
+      return `已删除库 ${r.db}（${r.file} 已移除）`
+    }),
+  },
 }
