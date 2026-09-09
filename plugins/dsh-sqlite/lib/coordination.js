@@ -104,7 +104,8 @@ export function preStepTexts(coord, agent, engine) {
   const m = cursorMap(coord, agent)
   const pending = []
   for (const [db, count] of coord.dbCounters) {
-    const seen = m.get(db) ?? 0
+    if (!m.has(db)) continue // 库亲和：从未触碰过的库不提醒变化（新库广播已覆盖"存在感"）
+    const seen = m.get(db)
     if (seen < count) pending.push(`「${db}.db」自你上次查看后有 ${count - seen} 处变化`)
   }
   if (pending.length > 0) {
