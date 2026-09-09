@@ -3,4 +3,4 @@
 # 行 id 需在 profile 的 bundle 层内保持唯一。
 - insert:
     - id: dsh-ui-restyle
-      name: dsh-ui-restyle
+      name: '@cxxl/dsh-ui-restyle'

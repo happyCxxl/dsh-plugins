@@ -28,13 +28,16 @@ DSH Web 执行过程优雅化插件：**正文为阅读主线**，正文之间�
 # 从本仓库目录安装（本地目录链接安装，改代码后刷新页面即可迭代）
 dsh plugin --profile web add ./plugins/dsh-ui-restyle
 
+# 或发布 npm 后按包名安装（与 @cxxl/dsh-sqlite 同 scope）
+# dsh plugin --profile web add @cxxl/dsh-ui-restyle
+
 # 或打包成 tgz 后安装（真实拷贝，不依赖源目录）
 # npm pack，然后：
 # dsh plugin --profile web add <生成的tgz绝对路径>
 ```
 
 安装后**重启一次 `dsh web`**（bundle 层只在启动时读取），刷新页面生效。
-卸载：`dsh plugin --profile web remove dsh-ui-restyle`，重启后恢复原生界面。
+卸载：`dsh plugin --profile web remove @cxxl/dsh-ui-restyle`，重启后恢复原生界面。
 
 ## 作用范围与副作用
 
