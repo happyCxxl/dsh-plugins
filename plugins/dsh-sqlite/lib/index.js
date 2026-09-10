@@ -1,6 +1,6 @@
 // index.js — 插件入口：注册五个工具 + 可选挂载自测。
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import { CallId, createUserMessage } from '@deepseek-ai/dsh-llm'
+import { ToolCallId, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -133,7 +133,7 @@ async function selfTest(ctx) {
     tmp = mkdtempSync(join(tmpdir(), 'dsh-sqlite-selftest-'))
     process.env.DSH_SQLITE_DATA_DIR = tmp
     const signal = new AbortController().signal
-    const call = (n, args) => ctx.tools.execute({ callId: CallId(`sqlite-self-${n}`), name: n, arguments: args, signal })
+    const call = (n, args) => ctx.tools.execute({ callId: ToolCallId(`sqlite-self-${n}`), name: n, arguments: args, signal })
 
     let r = await call('sqlite_exec', { sql: 'CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY, v TEXT); INSERT OR REPLACE INTO t (id, v) VALUES (1, \'hello\');' })
     if (r.isError) throw new Error(`exec 失败: ${JSON.stringify(r.error)}`)
