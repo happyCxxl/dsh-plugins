@@ -12,5 +12,8 @@ Desktop.ini
 node_modules/
 npm-debug.log*
 
+# 构建产物：npm pack / publish 生成的包
+*.tgz
+
 # Logs
 *.log
