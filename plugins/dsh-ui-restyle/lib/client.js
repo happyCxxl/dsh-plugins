@@ -15,20 +15,35 @@ window.__ModuleLoader__.load({
     //   - 运行中的工作段实时展开，结束后收成摘要；手动展开意图不被重置；
     //   - 所有副作用由 ctx.effect 回收。
     //
-    // 依赖的宿主结构（部署 dsh-web-app 0.1.1-rc.2）：
-    //   .Md3f7G_column                       聊天流列（flex column）
-    //     .Md3f7G_flowItem[data-chat-flow-kind][data-chat-flow-key]  每个聊天节点
-    //       tool-call   → .o3BgMG_root[data-tool][data-state]
-    //       assistant-step → .Sxvs8a_body（正文块）+ .QWLzlG_root[data-variant=think]（思考行）
-    //       command     → ._Xvjua_root[data-state]
-    //       context     → .pC0e7a_root
+    // ---------------------------------------------------------------------------
+    // 选择器策略（v0.2 重写）
+    //
+    // 只依赖宿主**稳定的 data-* 钩子**，绝不再依赖构建哈希类名。
+    // 旧版硬编码 .Md3f7G_column / .o3BgMG_root / .QWLzlG_root / .Sxvs8a_body 等
+    // CSS Module 哈希类名，前端一旦重新构建（0.1.1-rc.2 → 0.1.2-alpha.5）就全部失配，
+    // 插件静默空转。现用钩子均取自 dsh-client-ui-chat / dsh-client-ui-tool 源码：
+    //
+    //   [data-chat-flow-kind]        每个聊天节点（user/assistant-step/tool-call/command/context/…）
+    //   [data-chat-flow-key]         节点稳定键
+    //   [data-variant="think"]       思考行（ReasoningRow）
+    //   [data-tool] / [data-state]   工具行（ToolRow；state: running|ok|error|stopped）
+    //   [data-context-source]        上下文行（ContextInjectionRow）
+    //   [data-turn-process-member]   原生 Turn-process 折叠成员标记：这些行归原生折叠管，插件跳过不重复处理
+    //
+    // 聊天列本身没有稳定类名，所以改为「对所有 [data-chat-flow-kind] 元素按父节点分组」得到列。
     // ---------------------------------------------------------------------------
 
-    const COLUMN_SELECTOR = '.Md3f7G_column'
+    const FLOW_ITEM = '[data-chat-flow-kind]'
+    const THINK_ROW = '[data-variant="think"]'
+    const TOOL_ROW = '[data-tool]'
+    const CONTEXT_ROW = '[data-context-source]'
+    const NATIVE_PROCESS_ATTR = 'data-turn-process-member'
+
     const SEG_CLASS = 'dur-seg'
     const CHILD_CLASS = 'dur-child'
 
-    // 视为"工作行"的节点种类；其余（user / turn-tail / steering / 等）为边界，保持原样。
+    // 视为"工作行"的节点种类；其余（user / steering / turn-tail / turn-process / turn-error …）
+    // 为边界，保持原样不折叠。
     const WORK_KINDS = new Set([
       'tool-call',
       'command',
@@ -38,27 +53,6 @@ window.__ModuleLoader__.load({
     ])
 
     const CSS = `
-/* ==== dsh-ui-restyle：执行区排版收紧（仅作用于聊天列） ==== */
-.Md3f7G_column { gap: 12px; }
-.Md3f7G_column .Sxvs8a_body { gap: 12px; }
-.Md3f7G_column .o3BgMG_row,
-.Md3f7G_column .QWLzlG_row,
-.Md3f7G_column ._Xvjua_row {
-  font-size: 13px;
-  line-height: 20px;
-}
-.Md3f7G_column .o3BgMG_summary,
-.Md3f7G_column .o3BgMG_summarySuffix,
-.Md3f7G_column .QWLzlG_summary,
-.Md3f7G_column ._Xvjua_summary {
-  font-size: 13px;
-  line-height: 20px;
-}
-.Md3f7G_column .QWLzlG_thinkBody {
-  font-size: 13px;
-  line-height: 21px;
-}
-
 /* ==== dsh-ui-restyle：工作段摘要行 ==== */
 .dur-seg {
   display: flex;
@@ -143,6 +137,19 @@ window.__ModuleLoader__.load({
 /* 展开的工作行：缩进到摘要行的时间线下方 */
 .dur-child { padding-left: 23px; }
 
+/* ==== 执行区排版收紧（稳定选择器，仅作用于聊天列内的工作行）==== */
+[data-chat-flow-kind='tool-call'],
+[data-chat-flow-kind='command'],
+[data-chat-flow-kind='context'] {
+  font-size: 13px;
+  line-height: 20px;
+}
+[data-chat-flow-kind] [data-variant='think'],
+[data-chat-flow-kind] [data-tool] {
+  font-size: 13px;
+  line-height: 20px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .dur-seg, .dur-seg-dot, .dur-seg-glyph, .dur-seg-text { transition: none; }
   .dur-seg[data-status="running"] .dur-seg-glyph { animation: none; }
@@ -158,16 +165,46 @@ window.__ModuleLoader__.load({
     }
 
     // ---------------------------------------------------------------------------
-    // 分类：把列内每个 flow item 归为 text / work / boundary
+    // 稳定选择器工具
     // ---------------------------------------------------------------------------
-    function stepHasText(item) {
-      const body = item.querySelector('.Sxvs8a_body')
-      if (body === null) return false
-      for (const child of body.children) {
-        if (child.classList.contains('QWLzlG_root')) continue
-        if ((child.textContent || '').trim() !== '') return true
+
+    // 聊天列：所有流节点的父元素。列本身没有稳定类名，靠"流节点的父节点"反推。
+    function chatColumns() {
+      const columns = new Set()
+      for (const item of document.querySelectorAll(FLOW_ITEM)) {
+        const parent = item.parentElement
+        if (parent === null) continue
+        if (parent.matches(FLOW_ITEM)) continue // 嵌套流节点不算列
+        columns.add(parent)
       }
-      return false
+      return columns
+    }
+
+    // 原生 Turn-process 折叠的成员行：折叠与展开都归原生负责，插件跳过，避免双层折叠、
+    // 也避免插件释放 hidden 时把原生的隐藏一起撤销。
+    // 该标记只在「紧凑」对话视图（transcriptView=compact）下出现；「常规」视图下没有，插件自行折叠。
+    function nativeProcessMember(item) {
+      return item.hasAttribute(NATIVE_PROCESS_ATTR)
+    }
+
+    // 排除思考行后的可见文本；用来判断 assistant-step 是否含"正文"。
+    function textOutsideThink(item) {
+      let out = ''
+      const walk = (node) => {
+        if (node.nodeType === 3) {
+          out += node.nodeValue === null ? '' : node.nodeValue
+          return
+        }
+        if (node.nodeType !== 1) return
+        if (typeof node.matches === 'function' && node.matches(THINK_ROW)) return
+        for (const child of node.childNodes) walk(child)
+      }
+      walk(item)
+      return out
+    }
+
+    function stepHasText(item) {
+      return textOutsideThink(item).trim() !== ''
     }
 
     function classify(item) {
@@ -181,26 +218,23 @@ window.__ModuleLoader__.load({
     // 摘要与状态
     // ---------------------------------------------------------------------------
     function toolRoots(item) {
-      return [...item.querySelectorAll('.o3BgMG_root')].filter((root) => {
+      return [...item.querySelectorAll(TOOL_ROW)].filter((root) => {
         const host = root.parentElement
-        return host === null || host.closest('.o3BgMG_root') === null
+        return host === null || host.closest(TOOL_ROW) === null
       })
     }
 
     function summarize(items) {
       const parts = []
       for (const item of items) {
-        if (item.querySelector('.QWLzlG_root') !== null) parts.push('思考')
+        const kind = item.dataset.chatFlowKind
+        if (item.querySelector(THINK_ROW) !== null) parts.push('思考')
         for (const root of toolRoots(item)) {
           const tool = root.dataset.tool
           if (typeof tool === 'string' && tool !== '') parts.push(tool)
         }
-        if (item.querySelector('._Xvjua_root') !== null) {
-          const title = item.querySelector('._Xvjua_title')
-          const text = title === null ? '' : (title.textContent || '').trim()
-          parts.push(text === '' ? '命令' : text)
-        }
-        if (item.querySelector('.pC0e7a_root') !== null) parts.push('上下文')
+        if (kind === 'command') parts.push('命令')
+        if (kind === 'context' && item.querySelector(CONTEXT_ROW) !== null) parts.push('上下文')
       }
       const compact = []
       for (const name of parts) {
@@ -243,7 +277,8 @@ window.__ModuleLoader__.load({
       }
 
       const release = (item) => {
-        if (item.hasAttribute('hidden')) item.removeAttribute('hidden')
+        // 归原生折叠管的行不撤 hidden：撤了会把原生折叠的隐藏一起撤销。
+        if (item.hasAttribute('hidden') && !nativeProcessMember(item)) item.removeAttribute('hidden')
         item.classList.remove(CHILD_CLASS)
       }
 
@@ -288,7 +323,7 @@ window.__ModuleLoader__.load({
         rec.textEl.textContent = summarize([...rec.items])
         for (const item of rec.items) {
           if (expanded) {
-            if (item.hasAttribute('hidden')) item.removeAttribute('hidden')
+            if (item.hasAttribute('hidden') && !nativeProcessMember(item)) item.removeAttribute('hidden')
             item.classList.add(CHILD_CLASS)
           } else {
             item.classList.remove(CHILD_CLASS)
@@ -299,7 +334,7 @@ window.__ModuleLoader__.load({
 
       function sync() {
         for (const rec of records.values()) rec.stale = true
-        document.querySelectorAll(COLUMN_SELECTOR).forEach((column) => {
+        for (const column of chatColumns()) {
           const children = [...column.children]
           let i = 0
           while (i < children.length) {
@@ -308,7 +343,7 @@ window.__ModuleLoader__.load({
               i += 1
               continue
             }
-            if (classify(item) !== 'work') {
+            if (nativeProcessMember(item) || classify(item) !== 'work') {
               i += 1
               continue
             }
@@ -321,6 +356,7 @@ window.__ModuleLoader__.load({
                 continue
               }
               if (candidate.dataset.chatFlowKind === undefined) break
+              if (nativeProcessMember(candidate)) break
               if (classify(candidate) !== 'work') break
               items.push(candidate)
               j += 1
@@ -347,7 +383,7 @@ window.__ModuleLoader__.load({
             renderRow(rec)
             i = j
           }
-        })
+        }
         for (const [key, rec] of records) {
           if (rec.stale !== false || rec.items.size === 0 || (rec.row !== null && !rec.row.isConnected)) {
             for (const item of rec.items) release(item)
@@ -361,7 +397,7 @@ window.__ModuleLoader__.load({
       const onBeforeMatch = (event) => {
         const target = event.target
         if (!(target instanceof HTMLElement)) return
-        const item = target.closest('[data-chat-flow-kind]')
+        const item = target.closest(FLOW_ITEM)
         if (item === null) return
         for (const rec of records.values()) {
           if (rec.items.has(item)) {
@@ -392,10 +428,8 @@ window.__ModuleLoader__.load({
         if (timer !== null) clearTimeout(timer)
         timer = null
         document.removeEventListener('beforematch', onBeforeMatch, true)
-        document.querySelectorAll(COLUMN_SELECTOR).forEach((column) => {
-          column.querySelectorAll('.' + SEG_CLASS).forEach((row) => row.remove())
-          column.querySelectorAll('.' + CHILD_CLASS).forEach((el) => el.classList.remove(CHILD_CLASS))
-        })
+        document.querySelectorAll('.' + SEG_CLASS).forEach((row) => row.remove())
+        document.querySelectorAll('.' + CHILD_CLASS).forEach((el) => el.classList.remove(CHILD_CLASS))
         for (const rec of records.values()) {
           for (const item of rec.items) release(item)
           if (rec.row !== null) rec.row.remove()
