@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dsh-ui-restyle · 字体才是病根</title>
+<style>
+/* ===== 自带字体（随插件分发，OFL 许可）===== */
+@font-face { font-family: 'InterVar'; src: url('./fonts/inter-var-latin.woff2') format('woff2-variations'); font-weight: 100 900; font-display: block; }
+@font-face { font-family: 'MonoVar';  src: url('./fonts/jetbrains-mono-var-latin.woff2') format('woff2-variations'); font-weight: 100 800; font-display: block; }
+
+:root {
+  /* 现状：DSH 在 Windows 上真实解析到的字体 */
+  --sys-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --sys-mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', Consolas, 'Liberation Mono', Menlo, Courier, 'Microsoft YaHei';
+  /* 改进：插件自带 */
+  --new-sans: 'InterVar', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --new-mono: 'MonoVar', 'SF Mono', Consolas, 'Microsoft YaHei';
+  --feat: 'cv01' 1, 'ss03' 1, 'calt' 1, 'kern' 1, 'liga' 1;
+
+  --bg: rgb(21,21,23);
+  --l1: rgb(35,35,36);
+  --l2: rgb(44,44,46);
+  --line: rgba(255,255,255,.08);
+  --line2: rgba(255,255,255,.12);
+  --fg: rgb(247,248,248);
+  --fg2: rgb(208,214,224);
+  --fg3: rgb(160,166,176);
+  --cap: rgb(129,133,140);
+  --dim: rgb(72,74,80);
+  --accent: rgb(94,106,210);      /* Linear 式：克制的靛蓝，而非高饱和蓝 */
+  --accent2: rgb(103,158,254);    /* DSH 原生强调色（对照） */
+  --err: rgb(235,87,87);
+  --ok: rgb(16,185,129);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 44px 28px 120px; background: var(--bg); color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+  font: 400 15px/24px var(--sys-sans);
+}
+.wrap { max-width: 860px; margin: 0 auto; }
+h1 { font: 590 22px/30px var(--new-sans); font-feature-settings: var(--feat); letter-spacing: -.01em; margin: 0 0 8px; }
+.lead { color: var(--fg3); font-size: 13px; line-height: 20px; margin: 0 0 34px; }
+.tag { display: inline-block; font: 500 10px/14px var(--new-mono); letter-spacing: .1em; text-transform: uppercase;
+       color: var(--accent2); border: 1px solid var(--line2); border-radius: 4px; padding: 2px 7px; margin-bottom: 10px; }
+
+/* ============ 证据区：同一设计，只换字体 ============ */
+.proof { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 64px; }
+@media (max-width: 780px) { .proof { grid-template-columns: 1fr; } }
+.pcard { border: 1px solid var(--line); border-radius: 8px; padding: 18px 20px; background: var(--l1); }
+.pcard h2 { font: 590 11px/14px var(--new-mono); letter-spacing: .1em; text-transform: uppercase; margin: 0 0 14px; }
+.pcard.bad h2 { color: var(--err); }
+.pcard.good h2 { color: var(--ok); }
+.demo-seg { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: var(--cap); }
+.demo-seg .dot { width: 5px; height: 5px; border-radius: 1px; background: var(--dim); flex: none; }
+.demo-seg .t { flex: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.demo-seg .d { color: var(--dim); flex: none; }
+.demo-p { color: var(--fg2); margin: 0; }
+
+/* 现状：Segoe UI + Consolas，无 OpenType、无追踪微调 */
+.sys { font-family: var(--sys-sans); }
+.sys .demo-seg { font-family: var(--sys-mono); font-size: 12px; line-height: 18px; }
+.sys .demo-p { font-size: 14px; line-height: 22px; }
+
+/* 改进：Inter Variable + JetBrains Mono，带 OpenType 与逐级追踪 */
+.new { font-family: var(--new-sans); font-feature-settings: var(--feat); }
+.new .demo-seg { font-family: var(--new-mono); font-size: 12px; line-height: 18px; letter-spacing: .01em; font-variant-numeric: tabular-nums; }
+.new .demo-p { font-size: 15px; line-height: 24px; letter-spacing: -.011em; }
+
+.why { margin: 18px 0 0; padding-left: 18px; color: var(--fg3); font-size: 12.5px; line-height: 21px; font-family: var(--new-sans); }
+.why li { margin: 4px 0; }
+.why code { font-family: var(--new-mono); font-size: 11.5px; background: var(--l2); padding: 1px 5px; border-radius: 3px; color: var(--fg2); }
+
+/* ============ 方向区 ============ */
+.dir { margin: 0 0 58px; }
+.dhead { display: flex; align-items: baseline; gap: 10px; margin-bottom: 3px; }
+.didx { font: 500 11px/14px var(--new-mono); color: var(--accent2); }
+.dname { font: 590 16px/24px var(--new-sans); font-feature-settings: var(--feat); }
+.dref { font: 400 11px/14px var(--new-mono); color: var(--cap); margin-left: auto; }
+.dspec { color: var(--cap); font-size: 12.5px; line-height: 20px; margin: 0 0 16px; font-family: var(--new-sans); }
+.dspec b { color: var(--fg3); font-weight: 590; }
+.stage { border: 1px solid var(--line); border-radius: 10px; padding: 30px 34px; }
+
+/* 共用内容元素 */
+.u { margin: 0 0 22px; }
+.p { margin: 0 0 18px; }
+.p:last-child { margin-bottom: 0; }
+.p code { font-family: var(--new-mono); font-size: .82em; background: rgba(255,255,255,.05); border: 1px solid var(--line); padding: 1px 5px; border-radius: 2px; color: var(--fg2); }
+.kids { margin: 2px 0 16px; }
+.tool { display: flex; align-items: baseline; gap: 10px; font-family: var(--new-mono); font-size: 11.5px; line-height: 20px; }
+.tool .tn { color: var(--fg3); flex: none; }
+.tool .ts { color: var(--cap); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tool .td { margin-left: auto; color: var(--dim); flex: none; }
+
+/* ===========================================================================
+   ① PRECISION —— Linear 手法：发丝线 + 微字距 + 字重 510 + 半径≤8
+   =========================================================================== */
+.P .stage { border-radius: 8px; }
+.P .u { font-family: var(--new-sans); font-size: 14px; line-height: 22px; letter-spacing: -.006em; color: var(--fg3); border-left: 2px solid rgba(255,255,255,.16); padding-left: 12px; }
+.P .p { font-family: var(--new-sans); font-feature-settings: var(--feat); font-size: 15px; line-height: 25px; letter-spacing: -.011em; color: var(--fg); max-width: 66ch; }
+.P .p b { font-weight: 590; }
+.P .seg {
+  display: flex; align-items: center; width: 100%; margin: 20px 0; padding: 8px 0;
+  background: none; border: 0; border-top: .5px solid var(--line); border-bottom: .5px solid var(--line);
+  cursor: pointer; text-align: left; color: var(--fg3);
+  font: 510 12px/18px var(--new-sans); font-feature-settings: var(--feat); letter-spacing: .01em;
+  transition: color .1s cubic-bezier(.4,0,.2,1);
+}
+.P .seg:hover { color: var(--fg2); }
+.P .seg .ct { font-family: var(--new-mono); font-weight: 400; font-size: 11.5px; letter-spacing: 0; font-variant-numeric: tabular-nums; color: var(--fg3); margin-left: 10px; }
+.P .seg .dur { margin-left: auto; font-family: var(--new-mono); font-size: 11px; font-weight: 400; letter-spacing: 0; color: var(--dim); }
+.P .seg[data-status="running"] { color: var(--accent); }
+.P .seg[data-status="running"] .ct { color: var(--accent); }
+.P .kids { border-left: .5px solid var(--line); padding-left: 14px; margin: 0 0 20px; }
+
+/* ===========================================================================
+   ② AIRY —— Raycast 手法：正字距 + 字重 500 基线 + 下沉画布 + 内嵌高光
+   =========================================================================== */
+.A .stage {
+  background: #0b0b0e; border-radius: 12px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+}
+.A .u {
+  display: inline-block; border-radius: 8px; padding: 9px 14px; margin-bottom: 22px;
+  background: #1b1c1e; border: 1px solid rgba(255,255,255,.06);
+  font: 500 13.5px/21px var(--new-sans); font-feature-settings: var(--feat); letter-spacing: .012em; color: var(--fg2);
+}
+.A .p {
+  font: 400 14.5px/25px var(--new-sans); font-feature-settings: var(--feat);
+  letter-spacing: .008em; color: var(--fg2); max-width: 68ch;
+}
+.A .p b { font-weight: 590; color: var(--fg); }
+.A .seg {
+  display: flex; align-items: center; gap: 10px; width: 100%; margin: 5px 0; padding: 10px 13px;
+  background: #101111; border: 1px solid rgba(255,255,255,.06); border-radius: 9px;
+  cursor: pointer; text-align: left; color: var(--fg2);
+  font: 500 12px/18px var(--new-mono); letter-spacing: .015em;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+  transition: opacity .15s cubic-bezier(.4,0,.2,1), border-color .15s cubic-bezier(.4,0,.2,1);
+}
+.A .seg:hover { border-color: rgba(255,255,255,.12); opacity: .92; }
+.A .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; background: var(--dim); }
+.A .seg[data-status="done"] .dot { background: var(--ok); }
+.A .seg[data-status="running"] .dot { background: var(--accent2); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent2) 16%, transparent); animation: breathe 1.7s ease-in-out infinite; }
+.A .dur { margin-left: auto; color: var(--dim); font-size: 11px; flex: none; font-variant-numeric: tabular-nums; }
+.A .kids { padding-left: 14px; border-left: 1px solid rgba(255,255,255,.08); margin: 8px 0 18px 6px; }
+@keyframes breathe { 0%,100% { opacity: 1 } 50% { opacity: .34 } }
+
+/* ===========================================================================
+   ③ QUIET —— 融合：DSH 原生表面 + Linear 字重纪律 + Raycast 呼吸感（推荐）
+   =========================================================================== */
+.Q .stage { border-radius: 8px; }
+.Q .u {
+  font: 400 13.5px/21px var(--new-sans); font-feature-settings: var(--feat); letter-spacing: -.004em;
+  color: var(--fg3); margin-bottom: 22px;
+}
+.Q .u::before { content: ""; display: inline-block; width: 5px; height: 5px; border-radius: 1px; background: var(--dim); margin-right: 9px; vertical-align: 1px; }
+.Q .p {
+  font: 400 15px/25px var(--new-sans); font-feature-settings: var(--feat);
+  letter-spacing: -.009em; color: var(--fg); max-width: 68ch; margin: 0 0 18px;
+}
+.Q .p b { font-weight: 590; }
+.Q .seg {
+  display: flex; align-items: center; gap: 9px; width: 100%; margin: 3px 0; padding: 5px 8px 5px 0;
+  background: none; border: 0; cursor: pointer; text-align: left; color: var(--fg3);
+  font: 510 12px/18px var(--new-sans); font-feature-settings: var(--feat); letter-spacing: .012em;
+  border-radius: 5px;
+  transition: color .1s cubic-bezier(.4,0,.2,1), background-color .1s cubic-bezier(.4,0,.2,1);
+}
+.Q .seg:hover { color: var(--fg2); background: rgba(255,255,255,.04); }
+.Q .rail { position: relative; width: 12px; flex: none; align-self: stretch; }
+.Q .rail::before { content: ""; position: absolute; left: 4px; top: -2px; bottom: -2px; width: 1px; background: var(--line); }
+.Q .node { position: absolute; left: 2px; top: 50%; width: 5px; height: 5px; margin-top: -2.5px; border-radius: 1px; background: var(--cap); box-shadow: 0 0 0 2px var(--bg); }
+.Q .seg[data-status="running"] .node { background: var(--accent2); animation: breathe 1.7s ease-in-out infinite; }
+.Q .seg[data-status="error"] .node { background: var(--err); }
+.Q .seg[data-status="running"] .txt { color: var(--accent2); }
+.Q .ct { font-family: var(--new-mono); font-weight: 400; font-size: 11.5px; letter-spacing: 0; color: var(--fg3); margin-left: 6px; font-variant-numeric: tabular-nums; }
+.Q .dur { margin-left: auto; font-family: var(--new-mono); font-weight: 400; font-size: 11px; letter-spacing: 0; color: var(--dim); font-variant-numeric: tabular-nums; }
+.Q .kids { padding-left: 20px; border-left: 1px solid var(--line); margin: 4px 0 16px 5px; }
+@keyframes breathe { 0%,100% { opacity: 1 } 50% { opacity: .34 } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="tag">先看证据</span>
+  <h1>「丑」的根源是字体，不是布局</h1>
+  <p class="lead">同一套设计、同一段内容，<b>只有字体不同</b>。左边是你现在的真实渲染，右边是插件自带 Inter Variable + JetBrains Mono。</p>
+
+  <div class="proof">
+    <div class="pcard bad sys">
+      <h2>现状 · Segoe UI + Consolas</h2>
+      <div class="demo-seg"><span class="dot"></span><span class="t">think · read×2 · edit · glob</span><span class="d">1.4s</span></div>
+      <div class="demo-seg"><span class="dot"></span><span class="t">think · pwsh×3</span><span class="d">0.6s</span></div>
+      <p class="demo-p">这个报错是依赖版本冲突导致的。profile 里装的是 0.3.0，而它缺了 coordination.js。</p>
+    </div>
+    <div class="pcard good new">
+      <h2>改进 · Inter Variable + JetBrains Mono</h2>
+      <div class="demo-seg"><span class="dot"></span><span class="t">think · read×2 · edit · glob</span><span class="d">1.4s</span></div>
+      <div class="demo-seg"><span class="dot"></span><span class="t">think · pwsh×3</span><span class="d">0.6s</span></div>
+      <p class="demo-p">这个报错是依赖版本冲突导致的。profile 里装的是 0.3.0，而它缺了 coordination.js。</p>
+    </div>
+  </div>
+
+  <ul class="why">
+    <li>Segoe UI 是<b>静态字体</b>，没有 510 这一档 —— 而「字重 510」正是 Linear 全部质感的命门；Inter Variable 有 <code>100–900</code> 连续字重。</li>
+    <li>Inter 全局开启 <code>cv01</code> / <code>ss03</code> OpenType 特性，字形更几何、更"工具感"；Segoe UI 没有。</li>
+    <li>Consolas 是 2006 年的老字体；JetBrains Mono 的字腔、连字、<code>tabular-nums</code> 对齐是现代代码字体的水准。</li>
+    <li>正字距（+0.01em）在深色底上"透气"，负字距（-0.011em）让大字不松散 —— 这些微调只有在可变字体上才能做。</li>
+  </ul>
+
+  <hr style="border:0;border-top:1px solid var(--line);margin:56px 0 48px">
+
+  <!-- ======================= ① ======================= -->
+  <section class="dir P">
+    <div class="dhead"><span class="didx">01</span><span class="dname">Precision</span><span class="dref">Linear 手法</span></div>
+    <p class="dspec">
+      <b>发丝线</b>（0.5px 上下夹）+ <b>微小正字距</b>（+0.01em）+ 字重 <b>510</b> + 等宽计数 <b>tabular-nums</b> + 耗时右对齐。
+      半径 ≤8px、无节点无填充、<b>强调色全场只出现一次</b>。正文 15px/25、<b>-0.011em</b>（Linear 的段落处理），限宽 66ch。
+    </p>
+    <div class="stage">
+      <div class="u">帮我看下这个报错，为什么 dsh web 起不来？</div>
+      <div class="p">这个报错是<b>依赖版本冲突</b>导致的。profile 里装的是 <code>@cxxl/dsh-sqlite@0.3.0</code>，而它缺了 <code>lib/coordination.js</code>。</div>
+      <button class="seg" data-status="done"><span>工作</span><span class="ct">think · read×2 · edit · glob</span><span class="dur">1.4s</span></button>
+      <div class="p">已经定位到根因，正在修复。</div>
+      <button class="seg" data-status="running"><span>工作</span><span class="ct">think · pwsh×3</span><span class="dur">0.6s</span></button>
+      <div class="kids">
+        <div class="tool"><span class="tn">pwsh</span><span class="ts">npm publish --access public</span><span class="td">ok</span></div>
+        <div class="tool"><span class="tn">edit</span><span class="ts">lib/index.js</span><span class="td">ok</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= ② ======================= -->
+  <section class="dir A">
+    <div class="dhead"><span class="didx">02</span><span class="dname">Airy</span><span class="dref">Raycast 手法</span></div>
+    <p class="dspec">
+      <b>正文也用 500 字重</b>（Raycast：深色底上"重一点"更易读）+ <b>正字距 +0.012em</b> + 下沉画布 + <b>内嵌顶部高光</b>（<code>inset 0 1px 0 rgba(255,255,255,.05)</code>）。
+      摘要行是浅底信息条卡片，<b>hover 用 opacity 而非换底色</b>（Raycast 的标志性交互）。最"透气"、最有产品感。
+    </p>
+    <div class="stage">
+      <div class="u">帮我看下这个报错，为什么 dsh web 起不来？</div>
+      <div class="p">这个报错是<b>依赖版本冲突</b>导致的。profile 里装的是 <code>@cxxl/dsh-sqlite@0.3.0</code>，而它缺了 <code>lib/coordination.js</code>。</div>
+      <button class="seg" data-status="done"><span class="dot"></span><span class="txt">think · read×2 · edit · glob</span><span class="dur">1.4s</span></button>
+      <div class="p" style="margin-top:18px">已经定位到根因，正在修复。</div>
+      <button class="seg" data-status="running"><span class="dot"></span><span class="txt">think · pwsh×3</span><span class="dur">0.6s</span></button>
+      <div class="kids">
+        <div class="tool"><span class="tn">pwsh</span><span class="ts">npm publish --access public</span><span class="td">ok</span></div>
+        <div class="tool"><span class="tn">edit</span><span class="ts">lib/index.js</span><span class="td">ok</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= ③ ======================= -->
+  <section class="dir Q">
+    <div class="dhead"><span class="didx">03</span><span class="dname">Quiet</span><span class="dref">融合（推荐）</span></div>
+    <p class="dspec">
+      保留 <b>DSH 原生表面与 token</b>（所以和侧栏、输入区天然和谐），但把字重纪律（510/590）、逐级字距、等宽 tabular 计数、半径 ≤8 全部补齐。
+      摘要行是<b>贴着发丝轨道的极简行</b>——有节点但没填充，hover 只微微提亮。最"不像外挂"的一版。
+    </p>
+    <div class="stage">
+      <div class="u">帮我看下这个报错，为什么 dsh web 起不来？</div>
+      <div class="p">这个报错是<b>依赖版本冲突</b>导致的。profile 里装的是 <code>@cxxl/dsh-sqlite@0.3.0</code>，而它缺了 <code>lib/coordination.js</code>。</div>
+      <button class="seg" data-status="done"><span class="rail"><span class="node"></span></span><span class="txt">工作</span><span class="ct">think · read×2 · edit · glob</span><span class="dur">1.4s</span></button>
+      <div class="p">已经定位到根因，正在修复。</div>
+      <button class="seg" data-status="running"><span class="rail"><span class="node"></span></span><span class="txt">工作</span><span class="ct">think · pwsh×3</span><span class="dur">0.6s</span></button>
+      <div class="kids">
+        <div class="tool"><span class="tn">pwsh</span><span class="ts">npm publish --access public</span><span class="td">ok</span></div>
+        <div class="tool"><span class="tn">edit</span><span class="ts">lib/index.js</span><span class="td">ok</span></div>
+      </div>
+    </div>
+  </section>
+</div>
+</body>
+</html>

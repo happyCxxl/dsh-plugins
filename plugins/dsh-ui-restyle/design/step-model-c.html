@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dsh-ui-restyle · 步骤模型 C（分层）</title>
+<style>
+@font-face { font-family: 'InterVar'; src: url('./fonts/inter-var-latin.woff2') format('woff2-variations'); font-weight: 100 900; font-display: block; }
+@font-face { font-family: 'MonoVar';  src: url('./fonts/jetbrains-mono-var-latin.woff2') format('woff2-variations'); font-weight: 100 800; font-display: block; }
+
+:root {
+  --sans: 'InterVar', -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --mono: 'MonoVar', 'SF Mono', Consolas, 'Microsoft YaHei';
+  --feat: 'cv01' 1, 'ss03' 1, 'calt' 1, 'kern' 1, 'liga' 1;
+
+  --bg: rgb(21,21,23);
+  --line: rgba(255,255,255,.08);
+  --line2: rgba(255,255,255,.12);
+  --fg: rgb(247,248,248);
+  --fg2: rgb(208,214,224);
+  --fg3: rgb(138,143,152);
+  --dim: rgb(88,91,98);
+  --dimmer: rgb(60,62,68);
+  --accent: rgb(103,158,254);
+  --err: rgb(235,87,87);
+  --warn: rgb(214,158,74);
+  --ok: rgb(16,185,129);
+  --hover: rgba(255,255,255,.045);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 44px 28px 120px; background: var(--bg); color: var(--fg);
+  font: 400 15px/25px var(--sans); letter-spacing: -.009em; -webkit-font-smoothing: antialiased;
+  font-feature-settings: var(--feat);
+}
+.wrap { max-width: 880px; margin: 0 auto; }
+h1 { font: 590 22px/30px var(--sans); letter-spacing: -.012em; margin: 0 0 8px; }
+.lead { color: var(--fg3); font-size: 13.5px; line-height: 22px; margin: 0 0 12px; }
+.lead b { color: var(--fg2); font-weight: 590; }
+.rule { border: 0; border-top: 1px solid var(--line); margin: 40px 0 36px; }
+h2.sec { font: 590 13px/20px var(--sans); letter-spacing: -.004em; margin: 0 0 6px; }
+p.note { color: var(--fg3); font-size: 12.5px; line-height: 21px; margin: 0 0 18px; }
+p.note code { font-family: var(--mono); font-size: 11.5px; background: rgba(255,255,255,.05); padding: 1px 5px; border-radius: 2px; color: var(--fg2); }
+.frame { border: 1px solid var(--line); border-radius: 8px; padding: 22px 24px; margin: 0 0 14px; }
+.cap { font: 500 10px/14px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); margin: 0 0 14px; }
+
+/* ---------- 正文 ---------- */
+.prose { font: 400 15px/25px var(--sans); letter-spacing: -.009em; color: var(--fg); max-width: 68ch; margin: 0 0 16px; }
+.prose b { font-weight: 590; }
+.prose code { font-family: var(--mono); font-size: .82em; letter-spacing: 0; background: rgba(255,255,255,.05); border: 1px solid var(--line); padding: 1px 5px; border-radius: 2px; color: var(--fg2); }
+
+/* ===========================================================================
+   步骤组（group）
+   =========================================================================== */
+.group { margin: 14px 0 16px; }
+
+/* 组头：折叠时的那一行 */
+.ghead {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 5px 6px 5px 0; margin: 0; background: none; border: 0; cursor: pointer;
+  text-align: left; border-radius: 5px;
+  font: 510 12.5px/19px var(--sans); letter-spacing: .006em; color: var(--fg3);
+  transition: color .1s cubic-bezier(.4,0,.2,1), background-color .1s cubic-bezier(.4,0,.2,1);
+}
+.ghead:hover { color: var(--fg2); background: var(--hover); }
+.ghead .chev { flex: none; width: 9px; font-size: 8px; color: var(--dim); transition: transform .12s cubic-bezier(.4,0,.2,1); }
+.ghead[aria-expanded="true"] .chev { transform: rotate(90deg); }
+.ghead .gstate { flex: none; width: 13px; text-align: center; font-family: var(--mono); font-size: 11px; }
+.ghead .cnt { font-family: var(--mono); font-size: 11.5px; font-weight: 500; letter-spacing: 0; font-variant-numeric: tabular-nums; color: var(--fg3); }
+.ghead .comp { font-family: var(--mono); font-size: 11.5px; font-weight: 400; letter-spacing: 0; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ghead .gdur { margin-left: auto; flex: none; font-family: var(--mono); font-size: 11px; font-weight: 400; letter-spacing: 0; color: var(--dimmer); font-variant-numeric: tabular-nums; }
+.ghead[data-status="running"] .gstate, .ghead[data-status="running"] .cnt { color: var(--accent); }
+.ghead[data-status="error"] .gstate { color: var(--err); }
+.ghead[data-status="error"] { color: var(--fg2); }
+
+/* 步骤列表 */
+.steps { margin: 1px 0 2px 5px; padding-left: 15px; border-left: 1px solid var(--line); }
+.step {
+  display: grid; align-items: center;
+  grid-template-columns: 14px 58px 1fr auto;
+  column-gap: 9px; row-gap: 2px;
+  padding: 3px 6px 3px 0; border-radius: 4px;
+  font-family: var(--mono); font-size: 11.5px; line-height: 19px; letter-spacing: 0;
+  transition: background-color .1s cubic-bezier(.4,0,.2,1);
+}
+.step:hover { background: var(--hover); }
+.step .mark { text-align: center; font-size: 10.5px; color: var(--dim); }
+.step .tool { color: var(--fg3); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.step .target { color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.step .dur { color: var(--dimmer); font-variant-numeric: tabular-nums; text-align: right; }
+.step .err { grid-column: 2 / -1; color: var(--err); font-size: 11px; line-height: 17px; opacity: .92; }
+
+.step[data-state="queued"] .mark { color: var(--dimmer); }
+.step[data-state="running"] .mark { color: var(--accent); }
+.step[data-state="running"] .tool { color: var(--fg2); }
+.step[data-state="running"] .dur { color: var(--accent); }
+.step[data-state="ok"] .mark { color: var(--fg3); }
+.step[data-state="error"] .mark { color: var(--err); }
+.step[data-state="error"] .tool { color: var(--fg2); }
+.step[data-state="stopped"] .mark { color: var(--warn); }
+.step[data-state="stopped"] .tool { color: var(--dim); }
+.step[data-state="stopped"] .target { text-decoration: line-through; text-decoration-color: var(--dimmer); }
+
+/* 嵌套 subcall：缩进 + 发丝连接线 + 更暗一档 */
+.step.nested { margin-left: 24px; position: relative; }
+.step.nested::before {
+  content: ""; position: absolute; left: -10px; top: 0; bottom: 50%;
+  width: 8px; border-left: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  border-bottom-left-radius: 4px;
+}
+.step.nested .tool, .step.nested .target { color: var(--dimmer); }
+
+/* “破格露出”的步骤（组折叠时也显示） */
+.escape { margin-left: 5px; padding-left: 15px; border-left: 1px solid var(--line); }
+.escape .step { background: none; }
+.escape .step[data-state="running"] { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.escape .step[data-state="error"] { background: color-mix(in srgb, var(--err) 5%, transparent); }
+@keyframes breathe { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
+.spin { animation: breathe 1.5s ease-in-out infinite; }
+
+/* 状态总览表 */
+table.states { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.states th {
+  text-align: left; font: 500 10px/14px var(--mono); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--dim); padding: 0 12px 9px 0; border-bottom: 1px solid var(--line);
+}
+table.states td { padding: 9px 12px 9px 0; border-bottom: 1px solid rgba(255,255,255,.04); vertical-align: middle; }
+table.states td.m { font-family: var(--mono); font-size: 12px; width: 26px; }
+table.states td.n { font-family: var(--mono); font-size: 11.5px; color: var(--fg3); width: 84px; }
+table.states td.d { color: var(--fg3); font-size: 12.5px; line-height: 20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>步骤模型 C · 分层</h1>
+  <p class="lead">
+    默认<b>安静</b>：整组收成一行。只有 <b>运行中</b> 与 <b>失败</b> 的步骤会<b>破格自动露出</b>——其余成功的步骤继续收着。
+    点组头才展开全部。所有状态都有各自被设计过的语言，不再是一个方块走天下。
+  </p>
+
+  <hr class="rule">
+
+  <!-- ================= ① 安静：全部成功 ================= -->
+  <h2 class="sec">① 安静态 — 全部成功</h2>
+  <p class="note">只有一行。成功是常态，不该占版面；耗时右对齐、等宽 tabular，视觉上"对齐成列"。</p>
+  <div class="frame">
+    <p class="prose">这个报错是<b>依赖版本冲突</b>导致的。profile 里装的是 <code>@cxxl/dsh-sqlite@0.3.0</code>，而它缺了 <code>lib/coordination.js</code>。</p>
+    <div class="group">
+      <button class="ghead" data-status="ok" aria-expanded="false">
+        <span class="chev">▶</span><span class="gstate">✓</span>
+        <span class="cnt">4 步</span><span class="comp">think · read×2 · edit</span>
+        <span class="gdur">1.4s</span>
+      </button>
+    </div>
+    <p class="prose">已经定位到根因，正在修复。</p>
+  </div>
+
+  <!-- ================= ② 破格：运行中 ================= -->
+  <h2 class="sec">② 破格露出 — 运行中</h2>
+  <p class="note">组仍收着，但<b>运行中的那一步自己露出来</b>：转轮 + 实时计时 + 淡强调色底。你能看到"现在在干什么"，但看不到那一堆已经做完的。</p>
+  <div class="frame">
+    <p class="prose">我先看一下包里的文件是否齐全。</p>
+    <div class="group">
+      <button class="ghead" data-status="running" aria-expanded="false">
+        <span class="chev">▶</span><span class="gstate spin">⠹</span>
+        <span class="cnt">4 步</span><span class="comp">think · read×2 · pwsh</span>
+        <span class="gdur">2.1s</span>
+      </button>
+      <div class="escape">
+        <div class="step" data-state="running">
+          <span class="mark spin">⠹</span><span class="tool">pwsh</span><span class="target">npm pack --dry-run</span><span class="dur">0.6s</span>
+        </div>
+      </div>
+    </div>
+    <p class="prose">正在打包校验文件清单。</p>
+  </div>
+
+  <!-- ================= ③ 破格：失败 ================= -->
+  <h2 class="sec">③ 破格露出 — 失败（带行内错误摘要）</h2>
+  <p class="note">失败的步骤破格露出，并把<b>错误摘要直接写在行内第二行</b>——不需要点开就知道哪里错了。组头状态随之变红。</p>
+  <div class="frame">
+    <p class="prose">我先试着写一下这个文件。</p>
+    <div class="group">
+      <button class="ghead" data-status="error" aria-expanded="false">
+        <span class="chev">▶</span><span class="gstate">✕</span>
+        <span class="cnt">3 步 · 1 失败</span><span class="comp">think · read · edit</span>
+        <span class="gdur">1.1s</span>
+      </button>
+      <div class="escape">
+        <div class="step" data-state="error">
+          <span class="mark">✕</span><span class="tool">edit</span><span class="target">lib/index.js</span><span class="dur">34ms</span>
+          <span class="err">EPERM: operation not permitted — 文件被另一个进程占用</span>
+        </div>
+      </div>
+    </div>
+    <p class="prose">写不进去，我换个方式。</p>
+  </div>
+
+  <!-- ================= ④ 展开：全部步骤 + 所有状态 ================= -->
+  <h2 class="sec">④ 展开态 — 六种状态全览</h2>
+  <p class="note">点组头展开后，每一步都在，并且每种状态都有独立的标记 / 颜色 / 附加信息。嵌套 subcall 用缩进 + 发丝连接线归位到父步骤。</p>
+  <div class="frame">
+    <p class="prose">我跑一遍完整流程。</p>
+    <div class="group">
+      <button class="ghead" data-status="running" aria-expanded="true">
+        <span class="chev">▶</span><span class="gstate spin">⠹</span>
+        <span class="cnt">6 步</span><span class="comp">think · read×2 · edit · pwsh · glob</span>
+        <span class="gdur">3.2s</span>
+      </button>
+      <div class="steps">
+        <div class="step" data-state="ok">
+          <span class="mark">✓</span><span class="tool">think</span><span class="target">分析报错来源</span><span class="dur">1.2s</span>
+        </div>
+        <div class="step" data-state="ok">
+          <span class="mark">✓</span><span class="tool">read</span><span class="target">lib/index.js</span><span class="dur">12ms</span>
+        </div>
+        <div class="step" data-state="ok">
+          <span class="mark">✓</span><span class="tool">read</span><span class="target">package.json</span><span class="dur">8ms</span>
+        </div>
+        <div class="step" data-state="error">
+          <span class="mark">✕</span><span class="tool">edit</span><span class="target">lib/index.js</span><span class="dur">34ms</span>
+          <span class="err">EPERM: operation not permitted</span>
+        </div>
+        <div class="step" data-state="stopped">
+          <span class="mark">–</span><span class="tool">pwsh</span><span class="target">npm publish</span><span class="dur">已中止</span>
+        </div>
+        <div class="step" data-state="running">
+          <span class="mark spin">⠹</span><span class="tool">pwsh</span><span class="target">pnpm dsh web</span><span class="dur">0.4s</span>
+        </div>
+        <div class="step nested" data-state="running">
+          <span class="mark spin">⠹</span><span class="tool">subcall</span><span class="target">tsc --noEmit</span><span class="dur">0.2s</span>
+        </div>
+        <div class="step" data-state="queued">
+          <span class="mark">○</span><span class="tool">glob</span><span class="target">**/*.ts</span><span class="dur">—</span>
+        </div>
+      </div>
+    </div>
+    <p class="prose">还在跑。</p>
+  </div>
+
+  <hr class="rule">
+
+  <!-- ================= 状态系统 ================= -->
+  <h2 class="sec">状态视觉系统</h2>
+  <p class="note">每个状态一条规格。关键原则：<b>成功故意变暗</b>（常态不该抢眼），<b>只有运行中和失败配得上强调色</b>。</p>
+  <div class="frame">
+    <table class="states">
+      <thead><tr><th></th><th>状态</th><th>标记 / 颜色 / 行内附加信息</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="m" style="color:var(--dimmer)">○</td><td class="n">queued</td>
+          <td class="d">空心微环 · <code style="font-family:var(--mono);font-size:11.5px">dimmer</code> · 耗时位显示 <code style="font-family:var(--mono);font-size:11.5px">—</code>（占位，保证列对齐）</td>
+        </tr>
+        <tr>
+          <td class="m" style="color:var(--accent)"><span class="spin">⠹</span></td><td class="n">running</td>
+          <td class="d"><b style="color:var(--accent);font-weight:590">盲文转轮 + 呼吸</b> · 强调色 · <b>实时计时</b>（每秒刷新）· 破格露出 + 5% 强调色底</td>
+        </tr>
+        <tr>
+          <td class="m" style="color:var(--fg3)">✓</td><td class="n">ok</td>
+          <td class="d">细勾 · <b>三级文字色（刻意变暗）</b> · 耗时右对齐。成功是常态，不配强调色</td>
+        </tr>
+        <tr>
+          <td class="m" style="color:var(--err)">✕</td><td class="n">error</td>
+          <td class="d">细叉 · 红 <code style="font-family:var(--mono);font-size:11.5px">#EB5757</code> · <b>行内第二行直接写错误摘要</b> · 破格露出 + 5% 红底</td>
+        </tr>
+        <tr>
+          <td class="m" style="color:var(--warn)">–</td><td class="n">stopped</td>
+          <td class="d">短横 · 琥珀 · 目标文字加删除线 · 耗时位显示「已中止」</td>
+        </tr>
+        <tr>
+          <td class="m" style="color:var(--dimmer)">└</td><td class="n">nested</td>
+          <td class="d">缩进 24px + 发丝连接线（圆角折线）· 整体再暗一档 · 归属父步骤</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="note" style="margin-top:22px">
+    字体：正文 <b>Inter Variable</b>（字重 510/590，开启 <code>cv01/ss03</code>），步骤行 <b>JetBrains Mono</b>（tabular-nums 保证耗时纵向对齐）。
+    半径全部 ≤8px，边框统一 <code>rgba(255,255,255,.08)</code>，强调色只在运行中/失败出现。
+  </p>
+</div>
+<script>
+const F = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏']
+let i = 0
+setInterval(() => { i = (i+1) % F.length; document.querySelectorAll('.spin').forEach(e => { e.textContent = F[i] }) }, 90)
+</script>
+</body>
+</html>

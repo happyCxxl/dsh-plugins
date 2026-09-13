@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dsh-ui-restyle · 四个专业设计方向</title>
+<style>
+/* ===========================================================================
+   全部取值来自 DSH 自身设计系统
+   字体: theme/src/styles/base.css
+   颜色: theme/src/styles/design-platform.css
+   字号尺度: gradient-shadow-text.css (14/24 · 13/20 · 12/18 · 11/14)
+   动效曲线: cubic-bezier(0.4, 0, 0.2, 1)
+   =========================================================================== */
+:root {
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --code: 'SF Mono', 'JetBrains Mono', 'Fira Code', Consolas, 'Liberation Mono', Menlo, Courier, 'PingFang SC', 'Microsoft YaHei';
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --bg: rgb(21,21,23);
+  --l1: rgb(35,35,36);
+  --l2: rgb(44,44,46);
+  --l3: rgb(53,54,56);
+  --line1: rgba(255,255,255,.06);
+  --line2: rgba(255,255,255,.12);
+  --line3: rgba(255,255,255,.16);
+  --fg: rgb(249,250,251);
+  --fg2: rgb(207,211,214);
+  --fg3: rgb(173,178,184);
+  --cap: rgb(129,133,140);
+  --dim: rgb(67,69,74);
+  --hover: rgba(255,255,255,.08);
+  --accent: rgb(103,158,254);
+  --accent-d: rgb(65,118,230);
+  --err: rgb(242,90,90);
+  --ok: rgb(34,197,94);
+  --codebg: rgb(27,27,28);
+  --inl: rgb(44,44,46);
+}
+[data-theme="light"] {
+  --bg: #fff; --l1: #fff; --l2: rgb(249,250,251); --l3: rgb(241,243,245);
+  --line1: rgba(0,0,0,.04); --line2: rgba(0,0,0,.10); --line3: rgba(0,0,0,.12);
+  --fg: rgb(15,17,21); --fg2: rgb(97,102,107); --fg3: rgb(151,157,166);
+  --cap: rgb(173,178,184); --dim: rgb(225,229,238);
+  --hover: rgba(38,49,72,.06);
+  --accent: rgb(65,118,230); --accent-d: rgb(65,118,230);
+  --err: rgb(236,19,19); --ok: rgb(34,197,94);
+  --codebg: rgb(250,250,251); --inl: rgb(241,243,245);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 44px 28px 110px;
+  background: var(--bg); color: var(--fg);
+  font: 400 14px/24px var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 840px; margin: 0 auto; }
+h1 { font-size: 21px; line-height: 30px; font-weight: 600; margin: 0 0 8px; letter-spacing: -.01em; }
+.lead { color: var(--fg3); font-size: 13px; line-height: 20px; margin: 0 0 6px; }
+.meta { color: var(--cap); font-size: 12px; line-height: 18px; margin: 0 0 40px; }
+#toggle {
+  position: fixed; top: 18px; right: 22px; z-index: 9; cursor: pointer;
+  font: 400 12px/18px var(--code); color: var(--fg3);
+  background: var(--l2); border: 1px solid var(--line2); border-radius: 999px; padding: 6px 14px;
+}
+#toggle:hover { color: var(--fg); border-color: var(--line3); }
+
+.dir { margin: 0 0 60px; }
+.dhead { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.didx { font: 500 11px/14px var(--code); letter-spacing: .06em; color: var(--accent); }
+.dname { font-size: 15px; line-height: 22px; font-weight: 600; }
+.dref { font: 400 11px/14px var(--code); color: var(--cap); margin-left: auto; }
+.dspec { color: var(--cap); font-size: 12px; line-height: 19px; margin: 0 0 16px; }
+.dspec b { color: var(--fg3); font-weight: 500; }
+.stage { border: 1px solid var(--line2); border-radius: 12px; padding: 30px 34px; }
+
+/* ---------- 共用的聊天内容元素 ---------- */
+.u { margin: 0 0 24px; }
+.p { margin: 0 0 18px; }
+.p:last-child { margin-bottom: 0; }
+.p code, .pp code {
+  font: 400 .86em/1 var(--code);
+  background: var(--inl); color: var(--fg2);
+  padding: 2px 5px; border-radius: 4px;
+}
+.p ul { margin: 8px 0 0; padding-left: 18px; }
+.p li { margin: 4px 0; }
+pre.cb {
+  margin: 14px 0 0; padding: 12px 14px;
+  background: var(--codebg); border: 1px solid var(--line1); border-radius: 8px;
+  font: 400 11px/19px var(--code); color: var(--fg3); overflow-x: auto;
+}
+pre.cb .k { color: var(--accent); }
+pre.cb .c { color: var(--dim); }
+.kids { margin: 4px 0 16px; }
+.tool { display: flex; align-items: baseline; gap: 10px; font: 400 11.5px/20px var(--code); }
+.tool .tn { color: var(--fg3); flex: none; }
+.tool .ts { color: var(--cap); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tool .td { margin-left: auto; color: var(--dim); flex: none; }
+
+/* ===========================================================================
+   ① LINEAR —— 克制精密：一条被上下发丝线夹住的微型大写行，无节点无填充
+   参考: Linear 设计刷新「a calmer interface for a product in motion」
+   =========================================================================== */
+.L .u { font-size: 13px; line-height: 20px; color: var(--fg3); border-left: 2px solid var(--line3); padding-left: 12px; }
+.L .p { font-size: 14px; line-height: 24px; color: var(--fg); max-width: 68ch; }
+.L .seg {
+  display: flex; align-items: center; gap: 0;
+  width: 100%; margin: 22px 0; padding: 7px 0;
+  background: none; border: 0; border-top: .5px solid var(--line2); border-bottom: .5px solid var(--line2);
+  color: var(--cap); cursor: pointer; text-align: left;
+  font: 500 11px/14px var(--sans); letter-spacing: .07em; text-transform: uppercase;
+  transition: color .1s var(--ease);
+}
+.L .seg:hover { color: var(--fg2); }
+.L .seg .txt { font-variant-numeric: tabular-nums; }
+.L .seg .ct { font: 400 11px/14px var(--code); letter-spacing: 0; color: var(--fg3); margin-left: 8px; }
+.L .seg .dur { margin-left: auto; font: 400 11px/14px var(--code); letter-spacing: 0; color: var(--dim); }
+.L .seg[data-status="running"] { color: var(--accent); }
+.L .seg[data-status="running"] .ct { color: var(--accent); }
+.L .seg[data-status="error"] { color: var(--err); }
+.L .kids { border-left: .5px solid var(--line2); padding-left: 14px; margin: 0 0 22px; }
+.L .tool .tn { color: var(--fg3); }
+
+/* ===========================================================================
+   ② RAYCAST —— 深色精密：下沉画布 + 信息条卡片（圆点 + 等宽摘要 + 右对齐计时）
+   参考: Raycast 设计系统（#07080a 画布、内嵌高光、克制的强调色）
+   =========================================================================== */
+.R .stage { background: #0b0b0e; border-radius: 14px; box-shadow: inset 0 1px 0 rgba(255,255,255,.04); }
+[data-theme="light"] .R .stage { background: rgb(250,250,251); box-shadow: inset 0 1px 0 rgba(0,0,0,.02); }
+.R .u {
+  display: inline-block; background: var(--l2); border: 1px solid var(--line1);
+  border-radius: 8px; padding: 8px 13px; margin-bottom: 24px;
+  font-size: 13px; line-height: 20px; color: var(--fg2);
+}
+.R .p { font-size: 13.5px; line-height: 1.75; color: var(--fg2); }
+.R .p b { color: var(--fg); font-weight: 600; }
+.R .seg {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  margin: 4px 0; padding: 9px 12px;
+  background: var(--l1); border: 1px solid var(--line2); border-radius: 9px;
+  cursor: pointer; text-align: left;
+  font: 400 11.5px/16px var(--code); color: var(--fg2);
+  transition: background .1s var(--ease), border-color .1s var(--ease);
+}
+.R .seg:hover { background: var(--l2); border-color: var(--line3); }
+.R .dot {
+  width: 6px; height: 6px; border-radius: 50%; flex: none;
+  background: var(--dim); box-shadow: 0 0 0 3px color-mix(in srgb, var(--dim) 18%, transparent);
+}
+.R .seg[data-status="done"] .dot { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 16%, transparent); }
+.R .seg[data-status="running"] .dot { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); animation: breathe 1.6s ease-in-out infinite; }
+.R .seg[data-status="error"] .dot { background: var(--err); box-shadow: 0 0 0 3px color-mix(in srgb, var(--err) 16%, transparent); }
+.R .seg[data-status="running"] { border-color: color-mix(in srgb, var(--accent) 32%, var(--line2)); }
+.R .gl { flex: none; min-width: 10px; font-size: 11px; color: var(--accent); }
+.R .dur { margin-left: auto; color: var(--dim); font-size: 11px; flex: none; }
+.R .kids { padding-left: 12px; border-left: 1px solid var(--line2); margin: 6px 0 18px 6px; }
+@keyframes breathe { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+
+/* ===========================================================================
+   ③ WARP —— 工作即「块」：折叠段是一个带边框的圆角块，头部即摘要
+   参考: Warp 终端的 block 模型（命令与输出成为一个可折叠对象）
+   =========================================================================== */
+.W .stage { padding: 26px 28px; }
+.W .u {
+  border: 1px solid var(--line1); background: var(--l1); border-radius: 8px;
+  padding: 10px 14px; margin-bottom: 20px; font-size: 13px; line-height: 20px; color: var(--fg2);
+}
+.W .u::before { content: "PROMPT"; display: block; font: 500 10px/14px var(--code); letter-spacing: .1em; color: var(--dim); margin-bottom: 3px; }
+.W .p { font-size: 14px; line-height: 24px; color: var(--fg); max-width: 70ch; }
+.W .block {
+  border: 1px solid var(--line2); border-radius: 8px; background: var(--l1);
+  margin: 8px 0; overflow: hidden;
+}
+.W .block + .block { margin-top: 6px; }
+.W .seg {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 8px 12px; background: none; border: 0; cursor: pointer; text-align: left;
+  font: 400 11.5px/18px var(--code); color: var(--fg2);
+  transition: background .1s var(--ease);
+}
+.W .seg:hover { background: var(--l2); }
+.W .chev { flex: none; color: var(--dim); font-size: 9px; transition: transform .12s var(--ease); }
+.W .seg[aria-expanded="true"] .chev { transform: rotate(90deg); }
+.W .lbl { color: var(--fg3); flex: none; }
+.W .sep { color: var(--dim); flex: none; }
+.W .cnt { color: var(--cap); font-variant-numeric: tabular-nums; }
+.W .dur { margin-left: auto; color: var(--dim); flex: none; font-size: 11px; }
+.W .st { flex: none; width: 6px; height: 6px; border-radius: 1px; background: var(--dim); }
+.W .seg[data-status="done"] .st { background: var(--ok); }
+.W .seg[data-status="running"] .st { background: var(--accent); animation: breathe 1.6s ease-in-out infinite; }
+.W .seg[data-status="error"] .st { background: var(--err); }
+.W .body { border-top: 1px solid var(--line1); padding: 10px 12px; }
+.W .tool { font: 400 11px/20px var(--code); }
+@keyframes breathe { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+
+/* ===========================================================================
+   ④ MARGIN —— 正文是书，工作是天头地脚的批注：左栏贯通发丝线 + 微型节点
+   参考: Stripe Docs / Vercel 博客式技术长文排版
+   =========================================================================== */
+.M .stage { padding: 32px 34px 32px 26px; }
+.M .grid { display: grid; grid-template-columns: 34px 1fr; column-gap: 16px; }
+.M .railcell { position: relative; }
+.M .railcell::before {
+  content: ""; position: absolute; left: 6px; top: 0; bottom: 0; width: 1px; background: var(--line2);
+}
+.M .node { position: absolute; left: 3px; top: 8px; width: 7px; height: 7px; border-radius: 1px; background: var(--cap); box-shadow: 0 0 0 3px var(--bg); }
+.M .railcell[data-status="running"] .node { background: var(--accent); animation: breathe 1.6s ease-in-out infinite; }
+.M .railcell[data-status="error"] .node { background: var(--err); }
+.M .u { font-size: 13px; line-height: 20px; color: var(--fg3); margin: 0 0 24px; }
+.M .p { font-size: 15.5px; line-height: 1.82; color: var(--fg); max-width: 64ch; }
+.M .p b { font-weight: 600; }
+.M .seg {
+  display: block; width: 100%; padding: 6px 0 6px 0; background: none; border: 0;
+  text-align: left; cursor: pointer; color: var(--cap);
+  font: 500 11px/16px var(--code); letter-spacing: .08em; text-transform: uppercase;
+  transition: color .1s var(--ease);
+}
+.M .seg:hover { color: var(--fg2); }
+.M .seg .cnt { color: var(--fg3); letter-spacing: 0; font-weight: 400; }
+.M .seg .dur { color: var(--dim); font-weight: 400; letter-spacing: 0; float: right; }
+.M .seg[data-status="running"] { color: var(--accent); }
+.M .kids { padding-left: 10px; margin: 2px 0 14px; }
+.M .tool { font: 400 11px/20px var(--code); }
+@keyframes breathe { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+</style>
+</head>
+<body>
+<button id="toggle">☾ / ☀</button>
+<div class="wrap">
+  <h1>dsh-ui-restyle · 四个专业设计方向</h1>
+  <p class="lead">全部取自 DSH 自身设计系统（字体栈 / 颜色 token / 字号尺度 / 动效曲线），目标是"像原生长出来的"，而不是贴上去的皮肤。</p>
+  <p class="meta">四版内容完全一致：用户消息 · 正文（含列表、行内代码、代码块）· 已完成摘要 · 运行中摘要 · 展开的工作行。</p>
+
+  <!-- ============================ ① LINEAR ============================ -->
+  <section class="dir L">
+    <div class="dhead"><span class="didx">01</span><span class="dname">Restrained</span><span class="dref">Linear 设计语言</span></div>
+    <p class="dspec">
+      <b>核心：</b>把工作行做成一条被 <b>上下 0.5px 发丝线</b>夹住的<b>微型大写行</b>——无节点、无圆点、无填充、无圆角。计数用等宽 <b>tabular-nums</b> 对齐，耗时右对齐。
+      <b>强调色只出现一次</b>（运行中那一行）。正文保持 14/24 与最高对比度，是最"安静"的一版。
+    </p>
+    <div class="stage">
+      <div class="u">帮我看下这个报错，为什么 dsh web 起不来？</div>
+      <div class="p">这个报错是<b>依赖版本冲突</b>导致的。profile 里装的是 <code>@cxxl/dsh-sqlite@0.3.0</code>，而它缺了 <code>lib/coordination.js</code>——<code>index.js</code> 里 import 了它，加载时直接 <code>ERR_MODULE_NOT_FOUND</code>。</div>
+      <button class="seg" data-status="done"><span class="txt">工作</span><span class="ct">think · read×2 · edit · glob</span><span class="dur">1.4s</span></button>
+      <div class="p">已经定位到根因，正在修复。</div>
+      <button class="seg" data-status="running"><span class="txt">工作</span><span class="ct">think · pwsh×3</span><span class="dur">0.6s</span></button>
+      <div class="kids">
+        <div class="tool"><span class="tn">pwsh</span><span class="ts">npm publish --access public</span><span class="td">ok</span></div>
+        <div class="tool"><span class="tn">edit</span><span class="ts">lib/index.js</span><span class="td">ok</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ ② RAYCAST ============================ -->
+  <section class="dir R">
+    <div class="dhead"><span class="didx">02</span><span class="dname">Layered</span><span class="dref">Raycast 设计语言</span></div>
+    <p class="dspec">
+      <b>核心：</b>聊天区做成一块<b>比应用更暗的"下沉画布"</b>（#0b0b0e）+ 内嵌顶部高光；摘要行是一条<b>浅底信息条卡片</b>（圆角 9、1px 边、圆点状态、等宽摘要、右对齐耗时）。
+      <b>正文降一档对比度</b>，让信息条浮起来。最有"贵"感和层次感的一版。
+    </p>
+    <div class="stage">
+      <div class="u">帮我看下这个报错，为什么 dsh web 起不来？</div>
+      <div class="p">这个报错是<b>依赖版本冲突</b>导致的。profile 里装的是 <code>@cxxl/dsh-sqlite@0.3.0</code>，而它缺了 <code>lib/coordination.js</code>——<code>index.js</code> 里 import 了它，加载时直接 <code>ERR_MODULE_NOT_FOUND</code>。</div>
+      <button class="seg" data-status="done"><span class="dot"></span><span class="txt">think · read×2 · edit · glob</span><span class="dur">1.4s</span></button>
+      <div class="p" style="margin-top:18px">已经定位到根因，正在修复。</div>
+      <button class="seg" data-status="running"><span class="dot"></span><span class="gl" data-spin>⠋</span><span class="txt">think · pwsh×3</span><span class="dur">0.6s</span></button>
+      <div class="kids">
+        <div class="tool"><span class="tn">pwsh</span><span class="ts">npm publish --access public</span><span class="td">ok</span></div>
+        <div class="tool"><span class="tn">edit</span><span class="ts">lib/index.js</span><span class="td">ok</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ ③ WARP ============================ -->
+  <section class="dir W">
+    <div class="dhead"><span class="didx">03</span><span class="dname">Blocks</span><span class="dref">Warp 终端 block 模型</span></div>
+    <p class="dspec">
+      <b>核心：</b>把每个折叠段做成一个<b>带边框的圆角"块"</b>，块头就是摘要（箭头 + 标签 + 等宽计数 + 右对齐耗时 + 方形状态点），块体可展开。
+      多块之间 6px 间距，形成一条<b>可见的工作时间线</b>。正文留在块外——<b>正文与工作形成清晰的图层分离</b>。
+    </p>
+    <div class="stage">
+      <div class="u">帮我看下这个报错，为什么 dsh web 起不来？</div>
+      <div class="p">这个报错是<b>依赖版本冲突</b>导致的。profile 里装的是 <code>@cxxl/dsh-sqlite@0.3.0</code>，而它缺了 <code>lib/coordination.js</code>。</div>
+      <div class="block">
+        <button class="seg" data-status="done" aria-expanded="false"><span class="chev">▶</span><span class="st"></span><span class="lbl">think</span><span class="sep">·</span><span class="cnt">read×2 · edit · glob</span><span class="dur">1.4s</span></button>
+      </div>
+      <div class="p" style="margin-top:18px">已经定位到根因，正在修复。</div>
+      <div class="block">
+        <button class="seg" data-status="running" aria-expanded="true"><span class="chev">▶</span><span class="st"></span><span class="lbl">think</span><span class="sep">·</span><span class="cnt">pwsh×3</span><span class="dur">0.6s</span></button>
+        <div class="body">
+          <div class="tool"><span class="tn">pwsh</span><span class="ts">npm publish --access public</span><span class="td">ok</span></div>
+          <div class="tool"><span class="tn">edit</span><span class="ts">lib/index.js</span><span class="td">ok</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ ④ MARGIN ============================ -->
+  <section class="dir M">
+    <div class="dhead"><span class="didx">04</span><span class="dname">Margin</span><span class="dref">Stripe Docs / 技术长文排版</span></div>
+    <p class="dspec">
+      <b>核心：</b>双栏栅格——<b>左栏一条贯通全回合的发丝线 + 微型方形节点</b>，右栏是正文。正文放大到 <b>15.5px / 1.82</b>、限宽 64ch（长时间阅读最舒服）。
+      工作行压成<b>等宽大写微型批注</b>贴在轨道上，耗时右对齐。最"阅读优先"、最有书卷气的一版。
+    </p>
+    <div class="stage">
+      <div class="grid">
+        <div class="railcell"></div>
+        <div>
+          <div class="u">帮我看下这个报错，为什么 dsh web 起不来？</div>
+          <div class="p">这个报错是<b>依赖版本冲突</b>导致的。profile 里装的是 <code>@cxxl/dsh-sqlite@0.3.0</code>，而它缺了 <code>lib/coordination.js</code>。</div>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="railcell" data-status="done"><span class="node"></span></div>
+        <div>
+          <button class="seg" data-status="done"><span class="dur">1.4s</span>工作 <span class="cnt">THINK · READ×2 · EDIT · GLOB</span></button>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="railcell"></div>
+        <div><div class="p">已经定位到根因，正在修复。</div></div>
+      </div>
+      <div class="grid">
+        <div class="railcell" data-status="running"><span class="node"></span></div>
+        <div>
+          <button class="seg" data-status="running"><span class="dur">0.6s</span>工作 <span class="cnt">THINK · PWSH×3</span></button>
+          <div class="kids">
+            <div class="tool"><span class="tn">pwsh</span><span class="ts">npm publish --access public</span><span class="td">ok</span></div>
+            <div class="tool"><span class="tn">edit</span><span class="ts">lib/index.js</span><span class="td">ok</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+const root = document.documentElement
+document.getElementById('toggle').addEventListener('click', () => {
+  root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark'
+})
+const F = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏']
+let i = 0
+setInterval(() => { i = (i + 1) % F.length; document.querySelectorAll('[data-spin]').forEach(e => { e.textContent = F[i] }) }, 90)
+</script>
+</body>
+</html>

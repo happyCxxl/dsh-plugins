@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dsh-ui-restyle · 交互 UI（审批 / 提问）</title>
+<style>
+@font-face { font-family: 'InterVar'; src: url('./fonts/inter-var-latin.woff2') format('woff2-variations'); font-weight: 100 900; font-display: block; }
+@font-face { font-family: 'MonoVar';  src: url('./fonts/jetbrains-mono-var-latin.woff2') format('woff2-variations'); font-weight: 100 800; font-display: block; }
+:root {
+  --sans: 'InterVar', -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --mono: 'MonoVar', 'SF Mono', Consolas, 'Microsoft YaHei';
+  --feat: 'cv01' 1, 'ss03' 1, 'calt' 1, 'kern' 1, 'liga' 1;
+  --bg: rgb(21,21,23); --l1: rgb(35,35,36); --l2: rgb(44,44,46); --l3: rgb(53,54,56);
+  --line: rgba(255,255,255,.08); --line2: rgba(255,255,255,.14);
+  --fg: rgb(247,248,248); --fg2: rgb(208,214,224); --fg3: rgb(138,143,152);
+  --dim: rgb(88,91,98); --dimmer: rgb(60,62,68);
+  --accent: rgb(103,158,254); --warn: rgb(214,158,74); --err: rgb(235,87,87);
+  --hover: rgba(255,255,255,.045);
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 44px 28px 120px; background: var(--bg); color: var(--fg);
+  font: 400 15px/25px var(--sans); letter-spacing: -.009em; font-feature-settings: var(--feat); -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 780px; margin: 0 auto; }
+h1 { font: 590 22px/30px var(--sans); letter-spacing: -.012em; margin: 0 0 8px; }
+.lead { color: var(--fg3); font-size: 13.5px; line-height: 22px; margin: 0 0 30px; }
+.lead b { color: var(--fg2); font-weight: 590; }
+.rule { border: 0; border-top: 1px solid var(--line); margin: 38px 0 32px; }
+h2.sec { font: 590 13px/20px var(--sans); margin: 0 0 6px; }
+h2.sec span { font: 400 11px/14px var(--mono); color: var(--dim); margin-left: 8px; }
+p.note { color: var(--fg3); font-size: 12.5px; line-height: 21px; margin: 0 0 14px; }
+p.note code { font-family: var(--mono); font-size: 11.5px; background: rgba(255,255,255,.05); padding: 1px 5px; border-radius: 2px; color: var(--fg2); }
+.stage { border: 1px solid var(--line); border-radius: 8px; padding: 24px; margin: 0 0 14px; }
+
+/* ---------- 按钮：幽灵为默认（Linear：让内容而非 chrome 突出） ---------- */
+.btn { font: 510 12.5px/18px var(--sans); letter-spacing: .006em; border-radius: 6px; padding: 6px 13px; cursor: pointer; border: 1px solid transparent;
+  transition: color .1s cubic-bezier(.4,0,.2,1), background-color .1s cubic-bezier(.4,0,.2,1), border-color .1s cubic-bezier(.4,0,.2,1); }
+.btn.ghost { background: none; color: var(--fg3); }
+.btn.ghost:hover { color: var(--fg); background: var(--hover); }
+.btn.ghost.danger:hover { color: var(--err); background: color-mix(in srgb, var(--err) 8%, transparent); }
+.btn.primary { background: var(--accent); color: #fff; }
+.btn.primary:hover { background: color-mix(in srgb, var(--accent) 86%, #fff); }
+.btn[disabled] { opacity: .4; cursor: default; }
+
+/* ===========================================================================
+   A. 审批提示
+   =========================================================================== */
+/* 现状：20px 圆角 + 琥珀描边 + 整条琥珀 strip */
+.old-appr { border: 1px solid var(--warn); border-radius: 20px; overflow: hidden; background: var(--l1); }
+.old-appr .strip { display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+  background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); font-size: 13px; }
+.old-appr .strip i { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); display: block; }
+.old-appr .bd { padding: 12px 16px 0; }
+.old-appr .hl { font-size: 15px; line-height: 24px; font-weight: 500; color: var(--fg); }
+.old-appr .cmd { font-family: var(--mono); font-size: 13px; line-height: 20px; color: var(--fg3); margin-top: 6px; }
+.old-appr .ar { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 16px; }
+
+/* 重做：2px 琥珀左杠 + 半径 8 + 统一发丝边 + mono 代码面 + 幽灵/主按钮 */
+.new-appr { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--l1); }
+.new-appr .bar { flex: none; width: 2px; background: var(--warn); }
+.new-appr .bd { flex: 1; min-width: 0; padding: 15px 17px 13px; }
+.eyebrow { font: 500 10px/14px var(--mono); letter-spacing: .11em; text-transform: uppercase; color: var(--dim); margin-bottom: 7px; }
+.new-appr .eyebrow { color: var(--warn); }
+.new-appr .hl { font: 510 15px/24px var(--sans); letter-spacing: -.006em; color: var(--fg); }
+.new-appr .cmd { margin: 11px 0 0; padding: 10px 13px; background: var(--bg); border: 1px solid var(--line);
+  border-radius: 6px; font: 400 12px/19px var(--mono); color: var(--fg2); word-break: break-all; }
+.new-appr .ar { display: flex; justify-content: flex-end; gap: 6px; margin-top: 13px; }
+
+/* ===========================================================================
+   B. 提问卡片
+   =========================================================================== */
+.qcard { border: 1px solid var(--line); border-radius: 8px; background: var(--l1); padding: 17px 18px 13px; }
+.qcard .qtitle { font: 590 15.5px/24px var(--sans); letter-spacing: -.008em; color: var(--fg); margin: 0 0 14px; }
+.opts { display: flex; flex-direction: column; gap: 1px; }
+.opt { display: flex; align-items: flex-start; gap: 11px; width: 100%; padding: 9px 11px 9px 9px; margin: 0;
+  background: none; border: 0; border-radius: 6px; cursor: pointer; text-align: left;
+  transition: background-color .1s cubic-bezier(.4,0,.2,1); }
+.opt:hover { background: var(--hover); }
+.opt .idx { flex: none; width: 17px; text-align: center; font: 400 11.5px/19px var(--mono); color: var(--dim); padding-top: 1px; }
+.opt.on .idx { color: var(--accent); }
+.opt .box { flex: none; width: 13px; height: 13px; margin-top: 3px; border: 1px solid var(--line2); border-radius: 3px;
+  display: flex; align-items: center; justify-content: center; font-size: 9px; color: transparent; }
+.opt.on .box { background: var(--accent); border-color: var(--accent); color: #fff; }
+.opt .copy { min-width: 0; }
+.opt .ol { font: 400 14px/21px var(--sans); letter-spacing: -.005em; color: var(--fg2); }
+.opt.on .ol { color: var(--fg); }
+.opt .ds { display: block; font: 400 12.5px/19px var(--sans); color: var(--dim); margin-top: 1px; }
+.opt .rec { font: 500 10px/14px var(--mono); letter-spacing: .06em; color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); border-radius: 3px; padding: 1px 5px; margin-left: 7px; vertical-align: 1.5px; }
+.customrow { display: flex; align-items: center; gap: 11px; padding: 9px 11px 9px 9px; border-radius: 6px; }
+.customrow:hover { background: var(--hover); }
+.customrow input { flex: 1; min-width: 0; background: none; border: 0; outline: 0; padding: 0;
+  font: 400 14px/21px var(--sans); letter-spacing: -.005em; color: var(--fg); }
+.customrow input::placeholder { color: var(--dimmer); }
+.qfoot { display: flex; align-items: center; gap: 10px; margin-top: 13px; padding-top: 11px; border-top: 1px solid var(--line); }
+.pager { font: 400 11px/18px var(--mono); color: var(--dim); font-variant-numeric: tabular-nums; }
+.qfoot .acts { margin-left: auto; display: flex; gap: 6px; }
+
+/* 计划审阅（PlanReview） */
+.plan { border: 1px solid var(--line); border-radius: 8px; background: var(--bg); padding: 13px 15px; margin: 0 0 13px; }
+.plan ol { margin: 0; padding-left: 19px; }
+.plan li { font: 400 13.5px/22px var(--sans); color: var(--fg2); margin: 3px 0; }
+.plan li::marker { color: var(--dim); font-family: var(--mono); font-size: 11px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>交互 UI · 审批与提问</h1>
+  <p class="lead">模型需要你确认时出现的两类界面。原则和步骤模型一致：<b>半径 ≤8px</b>、<b>统一发丝边</b>、<b>颜色只用于语义</b>、<b>幽灵按钮为默认</b>。</p>
+  <p class="lead" style="margin-bottom:34px">稳定钩子：审批 <code style="font-family:var(--mono);font-size:11.5px">[data-approval-key]</code> / <code style="font-family:var(--mono);font-size:11.5px">[data-approval-scroll]</code>；提问 <code style="font-family:var(--mono);font-size:11.5px">[data-question-key]</code> / <code style="font-family:var(--mono);font-size:11.5px">[data-question-scroll]</code></p>
+
+  <hr class="rule">
+
+  <!-- ===================== 审批：现状 vs 重做 ===================== -->
+  <h2 class="sec">A1 · 审批 — 现状<span>border-radius: 20px + 琥珀描边 + 整条色带</span></h2>
+  <p class="note">现有实现的问题：<b>20px 圆角</b>（规格明确上限 8px，20px 读起来像玩具）；<b>整条琥珀色 strip</b> 把语义喊得太响；描边 + 色带 + 圆点三重强调同一件事。</p>
+  <div class="stage">
+    <div class="old-appr">
+      <div class="strip"><i></i>等待你的确认</div>
+      <div class="bd">
+        <div class="hl">是否允许执行 pwsh 命令？</div>
+        <div class="cmd">npm publish --access public</div>
+      </div>
+      <div class="ar">
+        <button class="btn ghost">拒绝</button>
+        <button class="btn primary">允许一次</button>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="sec" style="margin-top:30px">A2 · 审批 — 重做<span>2px 语义左杠 + 发丝边 + 半径 8</span></h2>
+  <p class="note">
+    语义只用<b>一处</b>表达：左侧 2px 琥珀杠（横向的"注意"信号，不占版面）。卡片回到发丝边 + 半径 8；
+    命令进 <b>mono 代码面</b>（可读、可复制感）；操作区用<b>幽灵「拒绝」+ 实心「允许一次」</b>——危险的默认不应该醒目。
+  </p>
+  <div class="stage">
+    <div class="new-appr">
+      <div class="bar"></div>
+      <div class="bd">
+        <div class="eyebrow">需要你确认 · pwsh</div>
+        <div class="hl">将要执行一条 shell 命令</div>
+        <pre class="cmd">npm publish --access public</pre>
+        <div class="ar">
+          <button class="btn ghost danger">拒绝</button>
+          <button class="btn primary">允许一次</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="rule">
+
+  <!-- ===================== 提问：单选 ===================== -->
+  <h2 class="sec">B1 · 提问 — 单选<span>带推荐项</span></h2>
+  <p class="note">序号用 <b>mono</b>（和步骤模型的工具名同族，读起来是"技术文档"而不是"表单"）；推荐项只给一个<b>低调的边框小字</b>，不用彩色徽标喊叫。</p>
+  <div class="stage">
+    <section class="qcard">
+      <div class="eyebrow">确认</div>
+      <h2 class="qtitle">这个报错你希望我怎么处理？</h2>
+      <div class="opts">
+        <button class="opt on">
+          <span class="idx">1</span>
+          <span class="copy"><span class="ol">直接修复并重新发布<span class="rec">推荐</span></span>
+            <span class="ds">改动小、可逆；发布后你重装一次即可</span></span>
+        </button>
+        <button class="opt">
+          <span class="idx">2</span>
+          <span class="copy"><span class="ol">只改代码，先不发布</span>
+            <span class="ds">适合你还要继续调整样式的情况</span></span>
+        </button>
+        <button class="opt">
+          <span class="idx">3</span>
+          <span class="copy"><span class="ol">先详细解释原因，我再决定</span></span>
+        </button>
+        <div class="customrow">
+          <span class="idx">✎</span>
+          <input placeholder="或者自己描述…">
+        </div>
+      </div>
+      <div class="qfoot">
+        <span class="pager">1 / 2</span>
+        <div class="acts">
+          <button class="btn ghost">跳过</button>
+          <button class="btn primary">继续</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===================== 提问：多选 ===================== -->
+  <h2 class="sec" style="margin-top:30px">B2 · 提问 — 多选<span>方形复选框</span></h2>
+  <p class="note">多选把序号换成<b>方形复选框</b>（1px 边 + 3px 圆角），选中填充强调色。用形状而非颜色区分单选/多选。</p>
+  <div class="stage">
+    <section class="qcard">
+      <div class="eyebrow">确认</div>
+      <h2 class="qtitle">这次样式改造要覆盖哪些界面？<span style="font:400 12px/18px var(--mono);color:var(--dim);margin-left:6px">可多选</span></h2>
+      <div class="opts">
+        <button class="opt on"><span class="box">✓</span><span class="copy"><span class="ol">聊天列（正文 + 步骤）</span></span></button>
+        <button class="opt on"><span class="box">✓</span><span class="copy"><span class="ol">审批提示</span></span></button>
+        <button class="opt"><span class="box">✓</span><span class="copy"><span class="ol">提问卡片</span></span></button>
+        <button class="opt"><span class="box">✓</span><span class="copy"><span class="ol">侧边栏与输入区</span></span></button>
+      </div>
+      <div class="qfoot">
+        <span class="pager">1 / 1</span>
+        <div class="acts">
+          <button class="btn ghost">跳过</button>
+          <button class="btn primary">提交</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===================== 计划审阅 ===================== -->
+  <h2 class="sec" style="margin-top:30px">B3 · 计划审阅<span>PlanReview</span></h2>
+  <p class="note">计划正文用等宽序号列表，放在<b>比卡片更深一层的代码面</b>上——它是"要审的东西"，不是"说明文字"。</p>
+  <div class="stage">
+    <section class="qcard">
+      <div class="eyebrow">审阅</div>
+      <h2 class="qtitle">按这个计划执行吗？</h2>
+      <div class="plan">
+        <ol>
+          <li>重写 client.js 的选择器层，改用稳定 data-* 钩子</li>
+          <li>打包 Inter Variable + JetBrains Mono，宿主侧注册路由供页面加载</li>
+          <li>按步骤模型 A 重构渲染：组头 + 可展开步骤列表</li>
+          <li>统一审批与提问的交互样式</li>
+          <li>发布 0.3.0 并重装验证</li>
+        </ol>
+      </div>
+      <div class="qfoot" style="margin-top:0;border-top:0;padding-top:0">
+        <div class="acts" style="margin-left:0">
+          <button class="btn primary">批准</button>
+          <button class="btn ghost danger">拒绝</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <hr class="rule">
+  <p class="note">
+    三条统一原则：<b>① 语义只用一处表达</b>（审批=一条 2px 左杠，不是一个色带 + 描边 + 圆点）；<b>② 形状承担分类</b>（序号=单选，方框=多选，条形=审批）；<b>③ 危险的默认不醒目</b>（「拒绝」是幽灵按钮，「允许」才是实心）。
+  </p>
+</div>
+</body>
+</html>

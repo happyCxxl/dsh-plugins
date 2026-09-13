@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dsh-ui-restyle · 步骤模型 A（点开才看）</title>
+<style>
+@font-face { font-family: 'InterVar'; src: url('./fonts/inter-var-latin.woff2') format('woff2-variations'); font-weight: 100 900; font-display: block; }
+@font-face { font-family: 'MonoVar';  src: url('./fonts/jetbrains-mono-var-latin.woff2') format('woff2-variations'); font-weight: 100 800; font-display: block; }
+
+:root {
+  --sans: 'InterVar', -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --mono: 'MonoVar', 'SF Mono', Consolas, 'Microsoft YaHei';
+  --feat: 'cv01' 1, 'ss03' 1, 'calt' 1, 'kern' 1, 'liga' 1;
+  --bg: rgb(21,21,23);
+  --line: rgba(255,255,255,.08);
+  --line2: rgba(255,255,255,.14);
+  --fg: rgb(247,248,248);
+  --fg2: rgb(208,214,224);
+  --fg3: rgb(138,143,152);
+  --dim: rgb(88,91,98);
+  --dimmer: rgb(60,62,68);
+  --accent: rgb(103,158,254);
+  --err: rgb(235,87,87);
+  --warn: rgb(214,158,74);
+  --hover: rgba(255,255,255,.045);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 44px 28px 120px; background: var(--bg); color: var(--fg);
+  font: 400 15px/25px var(--sans); letter-spacing: -.009em; -webkit-font-smoothing: antialiased;
+  font-feature-settings: var(--feat);
+}
+.wrap { max-width: 880px; margin: 0 auto; }
+h1 { font: 590 22px/30px var(--sans); letter-spacing: -.012em; margin: 0 0 8px; }
+.lead { color: var(--fg3); font-size: 13.5px; line-height: 22px; margin: 0 0 12px; }
+.lead b { color: var(--fg2); font-weight: 590; }
+.rule { border: 0; border-top: 1px solid var(--line); margin: 40px 0 34px; }
+h2.sec { font: 590 13px/20px var(--sans); margin: 0 0 6px; }
+h2.sec span { font: 400 11px/14px var(--mono); letter-spacing: 0; color: var(--dim); margin-left: 8px; }
+p.note { color: var(--fg3); font-size: 12.5px; line-height: 21px; margin: 0 0 16px; }
+p.note b { color: var(--fg2); font-weight: 590; }
+p.note code { font-family: var(--mono); font-size: 11.5px; background: rgba(255,255,255,.05); padding: 1px 5px; border-radius: 2px; color: var(--fg2); }
+.frame { border: 1px solid var(--line); border-radius: 8px; padding: 22px 24px; margin: 0 0 14px; }
+
+.prose { font: 400 15px/25px var(--sans); letter-spacing: -.009em; color: var(--fg); max-width: 68ch; margin: 0 0 16px; }
+.prose b { font-weight: 590; }
+.prose code { font-family: var(--mono); font-size: .82em; letter-spacing: 0; background: rgba(255,255,255,.05); border: 1px solid var(--line); padding: 1px 5px; border-radius: 2px; color: var(--fg2); }
+
+/* ===========================================================================
+   A 模型：默认只有组头一行；点开才显示步骤列表（无破格露出）
+   =========================================================================== */
+.group { margin: 12px 0 16px; }
+
+.ghead {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 6px 7px 6px 0; margin: 0; background: none; border: 0; cursor: pointer;
+  text-align: left; border-radius: 5px;
+  font: 510 12.5px/19px var(--sans); letter-spacing: .006em; color: var(--fg3);
+  transition: color .1s cubic-bezier(.4,0,.2,1), background-color .1s cubic-bezier(.4,0,.2,1);
+}
+.ghead:hover { color: var(--fg2); background: var(--hover); }
+.ghead .chev { flex: none; width: 9px; font-size: 8px; color: var(--dim); transition: transform .12s cubic-bezier(.4,0,.2,1); }
+.ghead[aria-expanded="true"] .chev { transform: rotate(90deg); }
+.ghead .gstate { flex: none; width: 13px; text-align: center; font-family: var(--mono); font-size: 11.5px; }
+.ghead .cnt { flex: none; font-family: var(--mono); font-size: 11.5px; font-weight: 500; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.ghead .comp { font-family: var(--mono); font-size: 11.5px; font-weight: 400; letter-spacing: 0; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ghead .comp .cur { color: var(--accent); }          /* 运行中的那一步，在组头里点亮 */
+.ghead .gdur { margin-left: auto; flex: none; font-family: var(--mono); font-size: 11px; font-weight: 400; letter-spacing: 0; color: var(--dimmer); font-variant-numeric: tabular-nums; }
+
+/* —— 组头四种状态 —— */
+.ghead[data-status="running"] { color: var(--fg2); }
+.ghead[data-status="running"] .gstate,
+.ghead[data-status="running"] .cnt,
+.ghead[data-status="running"] .gdur { color: var(--accent); }
+.ghead[data-status="error"] { color: var(--fg2); }
+.ghead[data-status="error"] .gstate,
+.ghead[data-status="error"] .fail { color: var(--err); }
+.ghead[data-status="stopped"] { color: var(--dim); }
+.ghead[data-status="stopped"] .gstate { color: var(--warn); }
+
+/* 步骤列表（只在展开时出现） */
+.steps { margin: 2px 0 2px 5px; padding-left: 15px; border-left: 1px solid var(--line); }
+.step {
+  display: grid; align-items: center;
+  grid-template-columns: 14px 58px 1fr auto;
+  column-gap: 9px; row-gap: 2px;
+  padding: 3px 6px 3px 0; border-radius: 4px;
+  font-family: var(--mono); font-size: 11.5px; line-height: 19px; letter-spacing: 0;
+  transition: background-color .1s cubic-bezier(.4,0,.2,1);
+}
+.step:hover { background: var(--hover); }
+.step .mark { text-align: center; font-size: 10.5px; color: var(--dim); }
+.step .tool { color: var(--fg3); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.step .target { color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.step .dur { color: var(--dimmer); font-variant-numeric: tabular-nums; text-align: right; }
+.step .err { grid-column: 2 / -1; color: var(--err); font-size: 11px; line-height: 17px; opacity: .9; }
+
+.step[data-state="queued"] .mark { color: var(--dimmer); }
+.step[data-state="running"] .mark { color: var(--accent); }
+.step[data-state="running"] .tool { color: var(--fg2); }
+.step[data-state="running"] .dur { color: var(--accent); }
+.step[data-state="ok"] .mark { color: var(--fg3); }
+.step[data-state="error"] .mark { color: var(--err); }
+.step[data-state="error"] .tool { color: var(--fg2); }
+.step[data-state="stopped"] .mark { color: var(--warn); }
+.step[data-state="stopped"] .tool { color: var(--dim); }
+.step[data-state="stopped"] .target { text-decoration: line-through; text-decoration-color: var(--dimmer); }
+
+.step.nested { margin-left: 24px; position: relative; }
+.step.nested::before {
+  content: ""; position: absolute; left: -10px; top: 0; bottom: 50%;
+  width: 8px; border-left: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  border-bottom-left-radius: 4px;
+}
+.step.nested .tool, .step.nested .target { color: var(--dimmer); }
+
+@keyframes breathe { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
+.spin { animation: breathe 1.5s ease-in-out infinite; }
+
+table.states { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.states th {
+  text-align: left; font: 500 10px/14px var(--mono); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--dim); padding: 0 12px 9px 0; border-bottom: 1px solid var(--line);
+}
+table.states td { padding: 9px 12px 9px 0; border-bottom: 1px solid rgba(255,255,255,.04); vertical-align: middle; }
+table.states td.m { font-family: var(--mono); font-size: 12px; width: 26px; }
+table.states td.n { font-family: var(--mono); font-size: 11.5px; color: var(--fg3); width: 92px; }
+table.states td.d { color: var(--fg3); font-size: 12.5px; line-height: 20px; }
+table.states code { font-family: var(--mono); font-size: 11.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>步骤模型 A · 点开才看</h1>
+  <p class="lead">
+    默认<b>永远只有一行组头</b>。运行中、失败、中止都不破格——<b>所有状态信号都压在这一行里</b>（状态符号 + 失败计数 + 当前步骤高亮 + 实时计时）。
+    想知道细节，点开看步骤列表。
+  </p>
+
+  <hr class="rule">
+
+  <!-- ① 成功 -->
+  <h2 class="sec">① 折叠 · 全部成功<span>quiet</span></h2>
+  <p class="note">最安静的形态。成功是常态，组头用三级文字色，不抢正文。</p>
+  <div class="frame">
+    <p class="prose">这个报错是<b>依赖版本冲突</b>导致的。profile 里装的是 <code>@cxxl/dsh-sqlite@0.3.0</code>，而它缺了 <code>lib/coordination.js</code>。</p>
+    <div class="group">
+      <button class="ghead" data-status="ok" aria-expanded="false">
+        <span class="chev">▶</span><span class="gstate">✓</span>
+        <span class="cnt">4 步</span>
+        <span class="comp">think · read×2 · edit</span>
+        <span class="gdur">1.4s</span>
+      </button>
+    </div>
+    <p class="prose">已经定位到根因，正在修复。</p>
+  </div>
+
+  <!-- ② 运行中 -->
+  <h2 class="sec">② 折叠 · 运行中<span>转轮 + 当前步骤高亮 + 实时计时</span></h2>
+  <p class="note">
+    不破格。三个信号同时说明"正在跑"并且"在跑什么"：状态符号变<b>呼吸转轮</b>；组成串里<b>当前那一步点亮成强调色</b>（<code>pwsh</code>）；耗时变强调色并<b>每秒跳动</b>。
+  </p>
+  <div class="frame">
+    <p class="prose">我先看一下包里的文件是否齐全。</p>
+    <div class="group">
+      <button class="ghead" data-status="running" aria-expanded="false">
+        <span class="chev">▶</span><span class="gstate spin">⠹</span>
+        <span class="cnt">4 步</span>
+        <span class="comp">think · read×2 · <span class="cur">pwsh</span></span>
+        <span class="gdur" data-live>2.1s</span>
+      </button>
+    </div>
+    <p class="prose">正在打包校验文件清单。</p>
+  </div>
+
+  <!-- ③ 失败 -->
+  <h2 class="sec">③ 折叠 · 有失败<span>红叉 + 失败计数 + 文字提亮</span></h2>
+  <p class="note">
+    不破格。组头把"有东西坏了"讲清楚：状态符号变<b>红叉</b>，计数里加一段 <code>1 失败</code>（红字），<b>整行文字从三级提亮到二级</b>——它主动引起你注意，但不展开。
+  </p>
+  <div class="frame">
+    <p class="prose">我先试着写一下这个文件。</p>
+    <div class="group">
+      <button class="ghead" data-status="error" aria-expanded="false">
+        <span class="chev">▶</span><span class="gstate">✕</span>
+        <span class="cnt">3 步 · <span class="fail">1 失败</span></span>
+        <span class="comp">think · read · edit</span>
+        <span class="gdur">1.1s</span>
+      </button>
+    </div>
+    <p class="prose">写不进去，我换个方式。</p>
+  </div>
+
+  <!-- ④ 中止 -->
+  <h2 class="sec">④ 折叠 · 已中止<span>琥珀短横</span></h2>
+  <div class="frame">
+    <div class="group">
+      <button class="ghead" data-status="stopped" aria-expanded="false">
+        <span class="chev">▶</span><span class="gstate">–</span>
+        <span class="cnt">2 步 · 已中止</span>
+        <span class="comp">think · pwsh</span>
+        <span class="gdur">0.8s</span>
+      </button>
+    </div>
+  </div>
+
+  <hr class="rule">
+
+  <!-- ⑤ 展开 -->
+  <h2 class="sec">⑤ 展开 · 步骤列表<span>点开才看</span></h2>
+  <p class="note">展开后每一步都在，每种状态有独立语言；错误摘要写在<b>行内第二行</b>；嵌套 subcall 用缩进 + 发丝折线归位到父步骤。</p>
+  <div class="frame">
+    <p class="prose">我跑一遍完整流程。</p>
+    <div class="group">
+      <button class="ghead" data-status="running" aria-expanded="true">
+        <span class="chev">▶</span><span class="gstate spin">⠹</span>
+        <span class="cnt">7 步</span>
+        <span class="comp">think · read×2 · edit · pwsh×2 · glob</span>
+        <span class="gdur">3.2s</span>
+      </button>
+      <div class="steps">
+        <div class="step" data-state="ok"><span class="mark">✓</span><span class="tool">think</span><span class="target">分析报错来源</span><span class="dur">1.2s</span></div>
+        <div class="step" data-state="ok"><span class="mark">✓</span><span class="tool">read</span><span class="target">lib/index.js</span><span class="dur">12ms</span></div>
+        <div class="step" data-state="ok"><span class="mark">✓</span><span class="tool">read</span><span class="target">package.json</span><span class="dur">8ms</span></div>
+        <div class="step" data-state="error">
+          <span class="mark">✕</span><span class="tool">edit</span><span class="target">lib/index.js</span><span class="dur">34ms</span>
+          <span class="err">EPERM: operation not permitted — 文件被另一个进程占用</span>
+        </div>
+        <div class="step" data-state="stopped"><span class="mark">–</span><span class="tool">pwsh</span><span class="target">npm publish</span><span class="dur">已中止</span></div>
+        <div class="step" data-state="running"><span class="mark spin">⠹</span><span class="tool">pwsh</span><span class="target">pnpm dsh web</span><span class="dur">0.4s</span></div>
+        <div class="step nested" data-state="running"><span class="mark spin">⠹</span><span class="tool">subcall</span><span class="target">tsc --noEmit</span><span class="dur">0.2s</span></div>
+        <div class="step" data-state="queued"><span class="mark">○</span><span class="tool">glob</span><span class="target">**/*.ts</span><span class="dur">—</span></div>
+      </div>
+    </div>
+    <p class="prose">还在跑。</p>
+  </div>
+
+  <hr class="rule">
+
+  <h2 class="sec">状态视觉系统</h2>
+  <p class="note">四条原则：<b>成功故意变暗</b>（常态不抢眼）；<b>强调色只给运行中</b>；<b>列对齐</b>（等宽 tabular）；<b>信息就地</b>（错误写行内）。</p>
+  <div class="frame">
+    <table class="states">
+      <thead><tr><th></th><th>状态</th><th>组头表现 / 步骤行表现</th></tr></thead>
+      <tbody>
+        <tr><td class="m" style="color:var(--dimmer)">○</td><td class="n">queued</td>
+          <td class="d">组头：<b>不体现</b>（排队不打扰）。步骤行：空心微环 · 最暗 · 耗时位 <code>—</code> 占位保证列对齐</td></tr>
+        <tr><td class="m" style="color:var(--accent)"><span class="spin">⠹</span></td><td class="n">running</td>
+          <td class="d">组头：<b>呼吸转轮</b> + 计数/耗时转强调色 + <b>当前步骤在组成串里点亮</b> + 计时每秒跳。步骤行：转轮 + 实时计时</td></tr>
+        <tr><td class="m" style="color:var(--fg3)">✓</td><td class="n">ok</td>
+          <td class="d">组头：细勾 · 三级文字色（安静）。步骤行：细勾 · 三级色 · 耗时右对齐。<b>成功不配强调色</b></td></tr>
+        <tr><td class="m" style="color:var(--err)">✕</td><td class="n">error</td>
+          <td class="d">组头：<b>红叉</b> + <b><code>N 失败</code> 红字</b> + 整行提亮到二级色。步骤行：红叉 + <b>行内第二行写错误摘要</b></td></tr>
+        <tr><td class="m" style="color:var(--warn)">–</td><td class="n">stopped</td>
+          <td class="d">组头：琥珀短横 + 「已中止」。步骤行：琥珀 · 目标加删除线 · 耗时位写「已中止」</td></tr>
+        <tr><td class="m" style="color:var(--dimmer)">└</td><td class="n">nested</td>
+          <td class="d">组头：并入父步骤，不单独计数。步骤行：缩进 24px + 发丝折线 + 再暗一档</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="note" style="margin-top:22px">
+    字体：组头与正文 <b>Inter Variable</b>（510/590 + <code>cv01/ss03</code>），步骤行 <b>JetBrains Mono</b>（tabular-nums）。
+    半径 ≤8px，边框统一 <code>rgba(255,255,255,.08)</code>，强调色只出现在运行中与失败。
+  </p>
+</div>
+<script>
+const F = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏']
+let i = 0
+setInterval(() => { i = (i+1) % F.length; document.querySelectorAll('.spin').forEach(e => { e.textContent = F[i] }) }, 90)
+// 模拟实时计时
+let t = 2.1
+const live = document.querySelector('[data-live]')
+setInterval(() => { t += 0.1; if (live) live.textContent = t.toFixed(1) + 's' }, 100)
+</script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 {
   "name": "@cxxl/dsh-ui-restyle",
-  "version": "0.2.0",
-  "description": "DSH Web 执行过程优雅化插件：正文为阅读主线，正文之间的思考/工具/命令工作行折叠为单条时序摘要（内容全部保留、可搜索定位），并收紧执行区排版。",
+  "version": "0.3.0",
+  "description": "DSH Web 精致化插件：自带 Inter Variable + JetBrains Mono 字体统一全站排版；聊天列按「步骤模型」把工作行收成一行组头（点开可见逐步状态）；并统一审批提示与提问卡片的交互样式。",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -13,6 +13,8 @@
   "files": [
     "lib/index.js",
     "lib/client.js",
+    "fonts/inter-var-latin.woff2",
+    "fonts/jetbrains-mono-var-latin.woff2",
     "cordis.patch.yml",
     "README.md",
     "LICENSE"
