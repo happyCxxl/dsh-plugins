@@ -35,10 +35,10 @@ window.__ModuleLoader__.load({
 
     const SEG = 'dur-seg'
     const HEAD = 'dur-head'
-    const STEPS = 'dur-steps'
     const STEP = 'dur-step'
     const CHILD = 'dur-child'
     const HIDDEN_BY_US = 'dur-hidden'
+    const OWN = 'data-dur-own'
 
     // 字体路由前缀，必须与宿主 lib/index.js 里注册的一致。
     const FONT_BASE = '/dsh-ui-restyle/fonts/'
@@ -163,10 +163,10 @@ html:root, body {
 .${HEAD}[data-status="stopped"] .dur-gstate { color: var(--dsw-alias-state-warn-primary); }
 
 /* ===========================================================================
-   2. 步骤列表（只在展开时出现）
+   2. 步骤行（与原生行交错排列；点某一步就地展开该步详情）
    =========================================================================== */
-.${STEPS} {
-  margin: 2px 0 4px 5px;
+.${STEP}, .${CHILD} {
+  margin-left: 5px;
   padding-left: 15px;
   border-left: 1px solid var(--dsw-alias-border-l2);
 }
@@ -175,7 +175,7 @@ html:root, body {
   align-items: center;
   grid-template-columns: 14px 62px minmax(0, 1fr) auto;
   column-gap: 9px;
-  padding: 3px 6px 3px 0;
+  padding: 3px 6px 3px 15px;
   border-radius: 4px;
   font-family: var(--dur-mono);
   font-size: 11.5px;
@@ -216,9 +216,6 @@ html:root, body {
 .${STEP}[data-state="stopped"] .dur-mark { color: var(--dsw-alias-state-warn-primary); }
 .${STEP}[data-state="stopped"] .dur-tool { color: var(--dsw-alias-label-dimmed); }
 .${STEP}[data-state="stopped"] .dur-target { text-decoration: line-through; }
-
-/* 展开的工作行：缩进对齐到步骤列表 */
-.${CHILD} { padding-left: 20px; }
 
 /* 被插件收起/展开的原生行 */
 .${HIDDEN_BY_US} { display: none !important; }
@@ -557,6 +554,15 @@ html:root, body {
         }, 60)
       }
 
+      // 判断一条 mutation 是否来自插件自己创建的 DOM（组头 / 步骤列表 / 步骤行）。
+      // 自激回路的关键：observer 监听整棵 body，若不过滤，sync() 里改 DOM 会再次
+      // 触发自己，形成 ~16Hz 无限重绘 —— 展开时整表被反复拆建，正是「闪动 + 点不中」的根因。
+      const ownMutation = (mutation) => {
+        const target = mutation.target
+        const el = target.nodeType === 1 ? target : target.parentElement
+        return el !== null && el.closest('[' + OWN + ']') !== null
+      }
+
       const release = (item) => {
         // 归原生折叠管的行不撤 hidden：撤了会把原生折叠的隐藏一起撤销。
         if (item.hasAttribute('hidden') && !nativeProcessMember(item)) item.removeAttribute('hidden')
@@ -595,6 +601,7 @@ html:root, body {
           while (j < children.length) {
             const candidate = children[j]
             if (!(candidate instanceof HTMLElement)) { j += 1; continue }
+            if (candidate.hasAttribute(OWN)) { j += 1; continue }
             if (candidate.dataset.chatFlowKind === undefined) break
             if (nativeProcessMember(candidate)) break
             if (classify(candidate) !== 'work') break
@@ -668,64 +675,116 @@ html:root, body {
         head.children[4].textContent = fmtDur(totalDuration(rec.steps))
       }
 
-      function renderSteps(rec) {
-        const list = rec.list
-        list.textContent = ''
-        for (const step of rec.steps) {
-          const row = document.createElement('div')
-          row.className = STEP
-          row.dataset.state = step.state
-          row.setAttribute('role', 'button')
-          row.setAttribute('tabindex', '0')
-          row.setAttribute('title', step.label === '' ? step.tool : step.tool + ' ' + step.label)
+      // 建一行步骤 DOM。结构与内容分离：结构只建一次、内容就地更新——
+      // 避免「整表拆建」把鼠标下的行换掉（悬停闪动 / 点不中）的根因。
+      function buildStepRow(step, rec) {
+        const row = document.createElement('div')
+        row.className = STEP
+        row.setAttribute(OWN, '')
+        row.setAttribute('role', 'button')
+        row.setAttribute('tabindex', '0')
+        const mark = document.createElement('span')
+        mark.className = 'dur-mark'
+        const tool = document.createElement('span')
+        tool.className = 'dur-tool'
+        const target = document.createElement('span')
+        target.className = 'dur-target'
+        const dur = document.createElement('span')
+        dur.className = 'dur-dur'
+        row.append(mark, tool, target, dur)
+        row.__dur = { mark, tool, target, dur, err: null }
+        row.__durStep = step
 
-          const mark = document.createElement('span')
-          mark.className = 'dur-mark'
-          if (step.state === 'running') {
-            mark.classList.add('dur-spin')
-            mark.textContent = SPINNER[spinFrame]
-          } else {
-            mark.textContent = MARK[step.state] ?? ''
-          }
-          const tool = document.createElement('span')
-          tool.className = 'dur-tool'
-          tool.textContent = step.tool
-          const target = document.createElement('span')
-          target.className = 'dur-target'
-          target.textContent = step.label
-          const dur = document.createElement('span')
-          dur.className = 'dur-dur'
-          dur.textContent = step.state === 'queued'
-            ? '—'
-            : step.state === 'stopped' ? '已中止' : fmtDur(step.dur)
-          row.append(mark, tool, target, dur)
+        // 点某一步 → 就地展开该步的原生详情（原生节点本就在这一步正下方，无需搬动）。
+        const reveal = () => setRevealed(rec, step, !step.revealed)
+        row.addEventListener('click', reveal)
+        row.addEventListener('keydown', (event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return
+          event.preventDefault()
+          reveal()
+        })
+        return row
+      }
 
-          if (step.state === 'error' && step.error !== '') {
-            const err = document.createElement('span')
-            err.className = 'dur-err'
-            err.textContent = step.error
-            row.append(err)
-          }
-
-          // 点某一步 → 露出该步的原生行看详情。
-          const reveal = () => {
-            step.el.classList.toggle(HIDDEN_BY_US)
-            step.el.classList.toggle(CHILD, !step.el.classList.contains(HIDDEN_BY_US))
-          }
-          row.addEventListener('click', reveal)
-          row.addEventListener('keydown', (event) => {
-            if (event.key !== 'Enter' && event.key !== ' ') return
-            event.preventDefault()
-            reveal()
-          })
-          list.append(row)
+      // 就地更新一行内容，不重建任何节点。
+      function updateStepRow(row, step) {
+        const p = row.__dur
+        row.dataset.state = step.state
+        row.setAttribute('title', step.label === '' ? step.tool : step.tool + ' ' + step.label)
+        if (step.state === 'running') {
+          p.mark.classList.add('dur-spin')
+          p.mark.textContent = SPINNER[spinFrame]
+        } else {
+          p.mark.classList.remove('dur-spin')
+          p.mark.textContent = MARK[step.state] ?? ''
         }
+        p.tool.textContent = step.tool
+        p.target.textContent = step.label
+        p.dur.textContent = step.state === 'queued'
+          ? '—'
+          : step.state === 'stopped' ? '已中止' : fmtDur(step.dur)
+        if (step.state === 'error' && step.error !== '') {
+          if (p.err === null) {
+            p.err = document.createElement('span')
+            p.err.className = 'dur-err'
+            row.append(p.err)
+          }
+          p.err.textContent = step.error
+        } else if (p.err !== null) {
+          p.err.remove()
+          p.err = null
+        }
+      }
+
+      // 程序化展开/收起宿主的原生工具行：点它内部的可展开行（与用户手点等价）。
+      function expandNative(el, open) {
+        const target = el.querySelector('[data-expandable]') ?? el.querySelector('[data-disclosure-row]')
+        if (target === null) return
+        if ((target.getAttribute('aria-expanded') === 'true') !== open) {
+          target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+        }
+      }
+
+      function setRevealed(rec, step, on) {
+        step.revealed = on
+        expandNative(step.el, on)
+        applyVisibility(rec)
+      }
+
+      // 组内可见性：组头折叠时全隐藏；展开时显示步骤行，被点开的步骤改显原生详情。
+      function applyVisibility(rec) {
+        for (const step of rec.steps) {
+          const revealed = rec.expanded && step.revealed
+          if (revealed) {
+            step.el.classList.remove(HIDDEN_BY_US)
+            step.el.classList.add(CHILD)
+          } else {
+            step.el.classList.add(HIDDEN_BY_US)
+            step.el.classList.remove(CHILD)
+          }
+          if (step.row !== null) step.row.classList.toggle(HIDDEN_BY_US, !(rec.expanded && !step.revealed))
+        }
+      }
+
+      // 每个步骤行直接插在它对应原生节点的正上方（交错排列），不单独建列表容器。
+      // 这样原生节点始终待在宿主给它的位置，压缩/重排都不会因「节点被搬走」而冲突。
+      function renderSteps(rec) {
+        for (const step of rec.steps) {
+          if (step.row === null || !step.row.isConnected) step.row = buildStepRow(step, rec)
+          const parent = step.el.parentElement
+          if (parent !== null && step.row.nextElementSibling !== step.el) {
+            parent.insertBefore(step.row, step.el)
+          }
+          updateStepRow(step.row, step)
+        }
+        applyVisibility(rec)
       }
 
       function buildHead(rec) {
         const head = document.createElement('button')
         head.type = 'button'
         head.className = HEAD
+        head.setAttribute(OWN, '')
         const chev = document.createElement('span')
         chev.className = 'dur-chev'
         chev.textContent = '▶'
@@ -741,12 +800,9 @@ html:root, body {
         head.addEventListener('click', () => {
           rec.expanded = !rec.expanded
           head.setAttribute('aria-expanded', String(rec.expanded))
-          rec.list.classList.toggle(HIDDEN_BY_US, !rec.expanded)
+          applyVisibility(rec)
         })
         rec.head = head
-        rec.list = document.createElement('div')
-        rec.list.className = STEPS
-        rec.list.classList.toggle(HIDDEN_BY_US, !rec.expanded)
         return head
       }
 
@@ -758,45 +814,48 @@ html:root, body {
             const key = items[0].dataset.chatFlowKey
             let rec = records.get(key)
             if (rec === undefined) {
-              rec = { key, head: null, list: null, steps: [], expanded: false, status: 'ok', stale: false }
+              rec = { key, head: null, steps: [], expanded: false, status: 'ok', stale: false }
               records.set(key, rec)
             }
             rec.stale = false
+            // 复用步骤记录：同一原生节点跨同步保持同一个对象，让 step.row / step.revealed 存活。
+            const prevByEl = new Map(rec.steps.map(s => [s.el, s]))
+            const live = new Set(items)
+            for (const s of rec.steps) {
+              if (!live.has(s.el)) {
+                if (s.row !== null && s.row.isConnected) s.row.remove()
+                release(s.el)
+              }
+            }
             rec.steps = items.map((el) => {
               const info = describe(el)
               const state = stateOf(el)
-              return {
-                el,
-                tool: info.tool,
-                label: info.label,
-                state,
-                dur: durationOf(el, state),
-                error: state === 'error' ? info.label : '',
-              }
+              const prev = prevByEl.get(el)
+              const step = prev !== undefined ? prev : { el, row: null, revealed: false }
+              step.tool = info.tool
+              step.label = info.label
+              step.state = state
+              step.dur = durationOf(el, state)
+              step.error = state === 'error' ? info.label : ''
+              return step
             })
             rec.status = groupStatus(rec.steps)
             if (rec.head === null || !rec.head.isConnected) {
               const head = buildHead(rec)
               const first = items[0]
-              if (first.parentElement !== null) {
-                // 顺序：组头 → 步骤列表 → 原生行（原生行随后被收起）
-                first.parentElement.insertBefore(head, first)
-                first.parentElement.insertBefore(rec.list, first)
-              }
-            }
-            // 收起原生行（保留 hidden="until-found" 之外的可见性控制由我们负责）。
-            for (const step of rec.steps) {
-              if (!step.el.classList.contains(CHILD)) step.el.classList.add(HIDDEN_BY_US)
+              if (first.parentElement !== null) first.parentElement.insertBefore(head, first)
             }
             renderHead(rec)
-            if (rec.expanded) renderSteps(rec)
+            renderSteps(rec)
           }
         }
         for (const [key, rec] of records) {
           if (rec.stale !== false || (rec.head !== null && !rec.head.isConnected)) {
-            for (const step of rec.steps) release(step.el)
+            for (const step of rec.steps) {
+              release(step.el)
+              if (step.row !== null && step.row.isConnected) step.row.remove()
+            }
             if (rec.head !== null) rec.head.remove()
-            if (rec.list !== null) rec.list.remove()
             records.delete(key)
           }
         }
@@ -843,7 +902,13 @@ html:root, body {
       }
 
       function start() {
-        observer = new MutationObserver(scheduleSync)
+        observer = new MutationObserver((mutations) => {
+          for (const mutation of mutations) {
+            if (ownMutation(mutation)) continue
+            scheduleSync()
+            return
+          }
+        })
         observer.observe(document.body, {
           childList: true,
           subtree: true,
@@ -868,9 +933,11 @@ html:root, body {
         if (healTimer !== null) clearInterval(healTimer)
         healTimer = null
         for (const rec of records.values()) {
-          for (const step of rec.steps) release(step.el)
+          for (const step of rec.steps) {
+            release(step.el)
+            if (step.row !== null && step.row.isConnected) step.row.remove()
+          }
           if (rec.head !== null) rec.head.remove()
-          if (rec.list !== null) rec.list.remove()
         }
         records.clear()
         timings.clear()

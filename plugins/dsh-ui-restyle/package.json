@@ -1,6 +1,6 @@
 {
   "name": "@cxxl/dsh-ui-restyle",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "DSH Web 精致化插件：自带 Inter Variable + JetBrains Mono 字体统一全站排版；聊天列按「步骤模型」把工作行收成一行组头（点开可见逐步状态）；并统一审批提示与提问卡片的交互样式。",
   "type": "module",
   "main": "lib/index.js",
