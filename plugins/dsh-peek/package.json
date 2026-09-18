@@ -1,0 +1,51 @@
+{
+  "name": "@cxxl/dsh-peek",
+  "version": "0.4.0",
+  "description": "DSH Web 内嵌文件预览：点击对话里本轮生成的产物文件（HTML / SVG / Markdown / 图片 / PDF / 代码 / CSV / 字体等）就地预览，不另开浏览器标签、也不用在本地打开文件。",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "prepublishOnly": "node ../../scripts/check-publish-files.mjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": []
+    }
+  },
+  "keywords": [
+    "dsh-plugin",
+    "preview",
+    "file",
+    "artifact",
+    "html",
+    "markdown",
+    "image",
+    "deepseek-harness"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/happyCxxl/dsh-plugins.git",
+    "directory": "plugins/dsh-peek"
+  }
+}
