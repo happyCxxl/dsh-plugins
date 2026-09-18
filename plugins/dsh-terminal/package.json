@@ -1,0 +1,48 @@
+{
+  "name": "@cxxl/dsh-terminal",
+  "version": "0.1.6",
+  "description": "DSH Web 内置交互式终端：底部工具窗口打开真实 PowerShell（PTY），像 IDEA 一样在浏览器里敲命令。",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "prepublishOnly": "node ../../scripts/check-publish-files.mjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": []
+    }
+  },
+  "keywords": [
+    "dsh-plugin",
+    "terminal",
+    "pty",
+    "powershell",
+    "deepseek-harness"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/happyCxxl/dsh-plugins.git",
+    "directory": "plugins/dsh-terminal"
+  }
+}
