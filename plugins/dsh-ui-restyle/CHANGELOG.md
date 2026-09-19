@@ -2,9 +2,10 @@
 
 本插件版本记录（语义化版本）。
 
-## Unreleased
+## 0.4.0 — 2026-09-20
 
-- 元数据与文档对齐规范：engines 统一官方口径、补 `repository`/`publishConfig`、补「依赖策略」文档、移除误入库的 `pnpm-lock.yaml`（2026-09-19，随下次发布生效）。
+- 字体覆盖改走官方主题通道 `ctx.theme.overrideTokens`（`--dsw-font-family` / `--ds-font-family-code`，light/dark 双值必填）；折叠与交互样式保留现状实现，新增「约定偏差与脆弱面清单」（依据：data-* 层跨 20 个发布版本零破坏性变更的调研证据；接管官方渲染器路线经评估为高风险，已放弃）。
+- 元数据与文档对齐规范：engines 统一官方口径、补 `repository`/`publishConfig`、补「依赖策略」文档、移除误入库的 `pnpm-lock.yaml`（2026-09-19）。
 
 ## 0.3.2 — 2026-09-19
 

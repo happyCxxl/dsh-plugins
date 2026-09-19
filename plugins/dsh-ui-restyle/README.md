@@ -22,7 +22,7 @@ DSH 的字体栈在 Windows 上落到 **Segoe UI + Consolas**：
 
 Segoe UI 是静态字体——**根本没有 510 这一档**，也不支持 `cv01/ss03`。所以不换字体，排版上限就被锁死了。
 
-本插件把两款字体打进包里（**合计 88KB**，均为 OFL 许可可自由分发），由宿主注册 HTTP 路由喂给页面，并覆盖上述两个 CSS 变量。中文仍回落系统 Microsoft YaHei（打包 CJK 字体需数 MB，业界通行做法是不打包）。
+本插件把两款字体打进包里（**合计 88KB**，均为 OFL 许可可自由分发），由宿主注册 HTTP 路由喂给页面，`@font-face` 在插件样式表里声明，字体变量覆盖走官方主题通道 `ctx.theme.overrideTokens`（light/dark 双值）。中文仍回落系统 Microsoft YaHei（打包 CJK 字体需数 MB，业界通行做法是不打包）。
 
 ```
 GET /dsh-ui-restyle/fonts/inter-var-latin.woff2
@@ -112,6 +112,17 @@ v0.1 曾硬编码 CSS Module 构建哈希类名（`.Md3f7G_column` / `.o3BgMG_ro
 | 审批 / 提问 | `[data-approval-key]` `[data-approval-scroll]` / `[data-question-key]` `[data-question-scroll]` |
 
 聊天列本身没有稳定类名，改为「对所有 `[data-chat-flow-kind]` 元素按父节点分组」反推。
+
+## 约定偏差与脆弱面清单
+
+步骤折叠与部分交互样式依赖 `data-*` 钩子 + DOM 操作，属**文档化约定偏差**——官方 Slot 体系没有行级折叠席位；接管官方渲染器（`conversation.chat.node` 的 `tool-call` 键）经 2026-09 调研评估为**高风险**（20 个发布版 / 22 天、渲染器契约层窗口内 6 次 breaking，且需继承 `tool.call.toolview` 整棵 17 键子树），故放弃。
+
+**稳定性证据**：`data-chat-flow-*`（2026-08-09 起源）、`data-tool` / `data-state`（2026-07-27 起源）跨全部 20 个发布版本**零破坏性变更**（git blame 全史核查）。
+
+**已知注意点**：
+
+- 官方 2026-08-27 起用 `hidden="until-found"` 挂隐藏行——未来若改选择器需过滤 `[hidden]`（官方示范 `:not([hidden])`）；
+- 该层无官方文档承诺，属实现细节：每次 harness 发版后应实测本插件回归（v0.2 的哈希类名教训已规避，但风险仍在）。
 
 ## 不丢内容的工程保障
 

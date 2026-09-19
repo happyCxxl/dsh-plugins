@@ -78,12 +78,13 @@ window.__ModuleLoader__.load({
 }
 
 html:root, body {
-  --dsw-font-family: 'DSH Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  --ds-font-family-code: 'DSH Mono', 'SF Mono', 'JetBrains Mono', 'Fira Code', Consolas, 'Liberation Mono', Menlo, Courier, 'PingFang SC', 'Microsoft YaHei';
+  /* 插件私有变量（只供本插件组件使用，不动宿主 token） */
   --dur-sans: 'DSH Sans', -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --dur-mono: 'DSH Mono', 'SF Mono', Consolas, 'Microsoft YaHei';
   --dur-ease: cubic-bezier(0.4, 0, 0.2, 1);
 }
+/* 宿主字体 token（--dsw-font-family / --ds-font-family-code）改由官方主题通道
+   ctx.theme.overrideTokens 覆盖（apply 里声明，light/dark 双值），不在样式表里动。 */
 
 /* 排版纪律：Inter 的 cv01/ss03 开启；字号越大字距越紧（Linear 手法）。
    中文由 Microsoft YaHei 承接（打包 CJK 字体体积不划算，业界通行做法）。 */
@@ -952,13 +953,28 @@ html:root, body {
 
     function apply(ctx) {
       injectCss(ctx)
+
+      // 官方主题通道：覆盖宿主字体 token（light/dark 双值必填；presenter 写到 body 内联变量）。
+      // 与样式表里的 @font-face（'DSH Sans' / 'DSH Mono'）配合，不再用 CSS 覆盖宿主变量。
+      const fontStacks = {
+        '--dsw-font-family': {
+          light: "'DSH Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif",
+          dark: "'DSH Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif",
+        },
+        '--ds-font-family-code': {
+          light: "'DSH Mono', 'SF Mono', 'JetBrains Mono', 'Fira Code', Consolas, 'Liberation Mono', Menlo, Courier, 'PingFang SC', 'Microsoft YaHei'",
+          dark: "'DSH Mono', 'SF Mono', 'JetBrains Mono', 'Fira Code', Consolas, 'Liberation Mono', Menlo, Courier, 'PingFang SC', 'Microsoft YaHei'",
+        },
+      }
+      ctx.effect(() => ctx.theme.overrideTokens('dsh-ui-restyle', fontStacks), 'dsh-ui-restyle: font tokens')
+
       const view = createView()
       ctx.effect(() => view.start(), 'dsh-ui-restyle: work-segment view')
     }
 
     exports.apply = apply
     exports.name = 'dsh-ui-restyle'
-    exports.inject = []
+    exports.inject = ['theme']
     return module.exports
   },
 })
