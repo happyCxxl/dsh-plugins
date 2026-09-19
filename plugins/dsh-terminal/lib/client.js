@@ -410,7 +410,7 @@ window.__ModuleLoader__.load({
           s2.info = { pid: res.pid, cwd: res.cwd || '', shell: res.shell || '', error: '', exitCode: null }
           s2.status = 'running'
           bump()
-          if (key === activeKey && inputRef.current) inputRef.current.focus()
+          if (key === activeKey) focus()
         } catch (err) {
           const s2 = sessions.get(key)
           if (!s2) return
@@ -427,6 +427,7 @@ window.__ModuleLoader__.load({
         activeKey = key
         bump()
         spawn(key)
+        focus()
       }
       function switchSession(key) {
         if (key === activeKey) return
@@ -434,6 +435,7 @@ window.__ModuleLoader__.load({
         bump()
         const s = sessions.get(key)
         if (s && !s.hostId && s.status !== 'spawning' && s.status !== 'error') spawn(key)
+        focus()
       }
       function closeSession(key) {
         const s = sessions.get(key)
@@ -450,6 +452,7 @@ window.__ModuleLoader__.load({
           }
         }
         bump()
+        if (activeKey) focus()
       }
       function exitAll() {
         for (const s of sessions.values()) {
@@ -467,6 +470,9 @@ window.__ModuleLoader__.load({
         const active = sessions.get(activeKey)
         if (active && !active.hostId && active.status !== 'spawning' && active.status !== 'error') spawn(activeKey)
         bump()
+        // 进入终端 tab 后自动聚焦，否则键盘输入没有落点
+        focus()
+        const focusTimer = setTimeout(() => focus(), 0)
 
         const pollId = setInterval(async () => {
           if (busyRef.current) return
@@ -490,7 +496,7 @@ window.__ModuleLoader__.load({
           }
         }, 40)
 
-        return () => { clearInterval(pollId) } // 切走 tab 只停轮询，不关 PTY
+        return () => { clearInterval(pollId); clearTimeout(focusTimer) } // 切走 tab 只停轮询，不关 PTY
       }, [])
 
       React.useEffect(() => {
@@ -507,7 +513,11 @@ window.__ModuleLoader__.load({
       const cursorAbsY = emu ? emu.scrollback.length + emu.cy : 0
       const cursorX = emu ? emu.cx : 0
 
-      function focus() { if (inputRef.current) inputRef.current.focus() }
+      function focus() {
+        if (inputRef.current) {
+          try { inputRef.current.focus({ preventScroll: true }) } catch { inputRef.current.focus() }
+        }
+      }
       function send(data) {
         const key = activeKey
         const s = sessions.get(key)
@@ -595,8 +605,8 @@ window.__ModuleLoader__.load({
           autoCorrect: 'off',
           onKeyDown: onKeyDown,
           onInput: onInput,
-          onFocus: () => { focusedRef.current = true },
-          onBlur: () => { focusedRef.current = false },
+          onFocus: () => { focusedRef.current = true; bump() },
+          onBlur: () => { focusedRef.current = false; bump() },
         }),
       )
     }
