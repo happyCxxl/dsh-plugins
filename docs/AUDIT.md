@@ -21,7 +21,7 @@
 | B11 | 🟡 | ui-restyle | 缺 `repository`；误跟踪 `pnpm-lock.yaml`；字体重复 | ✅ 已改：补 repository、移除 pnpm-lock；`design/fonts/` 保留（原型 HTML 自包含引用 `./fonts/`，不属发布物） |
 | B12 | 🟡 | dsh-sqlite | `scripts/` 未挂接、无说明 | ✅ 已改：`smoke.mjs` 接线为 `npm run smoke`（有 PASS/FAIL 断言与退出码）；`noise-check.mjs` 删除（一次性实验，结论已在 DESIGN.md） |
 | B13 | 🟡 | sqlite | README 缺「权限与副作用」节 | ✅ 已改：sqlite 补节（权限=读写 `~/.dsh/data/*.db` 无网络；副作用=提示词规则/只读路由/协作观察/停用回收）。peek/terminal/image-reader/ui-restyle 原有节已覆盖，无需改 |
-| B14 | 🟡 | 全部 | 无 CHANGELOG、无 tag 纪律 | ❌ 未做（随发布节奏一起定，Step 4） |
+| B14 | 🟡 | 全部 | 无 CHANGELOG、无 tag 纪律 | 🟡 部分完成：5 包 CHANGELOG.md 已补（历史回溯 + 未发布标注）；tag/发布纪律随发布执行 |
 | B15 | 🟡 | 全部 | 5 个包都缺 `publishConfig.access: "public"`（规范 §3，官方包先例都有） | ✅ 已改：全部补齐 |
 
 ## 整改路线
@@ -30,12 +30,13 @@
 - **Step 1 — 发布闭环**：B3 ✅；B1、B2 ⏸（发布动作用户决定延后，届时按 §8 流程执行）。
 - **Step 2 — 元数据统一（已完成）**：B4 / B5 / B8 / B10 / B11 / B15 全部清零。
 - **Step 3 — 客户端 Slot 化（待做，逻辑类）**：B6 / B7 / B9；按脆度 dsh-peek → ui-restyle → dsh-terminal → dsh-sqlite 评估；B7 需先评估官方 RPC 通道可行性。
-- **Step 4 — 验证闭环（待做）**：B14（CHANGELOG/tag 纪律）+ 5 包干净 profile 冒烟（复用 `npm run smoke` 与社区 `dsh-plugin-dev check/verify`）。
+- **Step 4 — 验证闭环（待做）**：B14 剩余（tag/发布纪律，随发布执行）+ 5 包干净 profile 冒烟（复用 `npm run smoke` 与社区 `dsh-plugin-dev check/verify`）。
 
 每步纪律：改代码 + 同一 commit 更新对应文档（契约改 `docs/PLUGIN_SPEC.md`，目录结构改 `README.md` 总览表）；修完 AUDIT 条目勾选并记 commit。
 
 ## 完成记录
 
 - B3 / B4 / B5 / B8 / B10 / B11 / B12 / B13 / B15 ✅ 本批整改（非逻辑类，未改任何运行行为；commit 见 git log）。
-- B6 / B7 / B9 / B14 ❌ 待 Step 3 / Step 4。
+- B14（CHANGELOG 部分）✅ 本批：5 包 CHANGELOG.md 从 git 历史回溯补齐并加入 files 白名单；tag/发布纪律待发布时执行。
+- B6 / B7 / B9 ❌ 待 Step 3（逻辑类）。
 - B1 / B2 ⏸ 暂缓（发布延后）。
