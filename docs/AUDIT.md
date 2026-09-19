@@ -13,10 +13,10 @@
 | B3 | 🔴 | peek / terminal / ui-restyle | patch 注释与 README 示例教 `add ./plugins/<目录>`——pnpm link（Windows 即 junction）悬空陷阱 | ✅ 已改：三份 patch 注释 + 两份 README 改两通道（npm / tarball） |
 | B4 | 🟠 | 全部 | engines 口径不一；官方口径 `^22.19.0 \|\| >=24.0.0` | ✅ 已改：4 包统一官方口径；sqlite 保留 `>=22.5`（node:sqlite 硬要求，README 已说明） |
 | B5 | 🟠 | 全部 | 三种依赖策略并存且无文档 | ✅ 已改：各 README 补「依赖策略」节（sqlite=peer 复用 / peek·terminal·ui-restyle=零 import / image-reader=Config 形态） |
-| B6 | 🟠 | peek / terminal / ui-restyle | 客户端绕过 Slot 体系：猜 DOM、全局扫描、直接改 `document.head`（sqlite 面板已走 `slots.register`，此前误列，已更正） | ❌ 未做（逻辑类，Step 3） |
-| B7 | 🟠 | peek / terminal / sqlite / ui-restyle | 客户端私有 RPC 自造：`webServer.register` 同源路由 + fetch，非官方契约面 | ❌ 未做（逻辑类，Step 3） |
+| B6 | 🟠 | peek / terminal / ui-restyle | 客户端绕过 Slot 体系：猜 DOM、全局扫描、直接改 `document.head`（sqlite 面板已走 `slots.register`，此前误列，已更正） | 🟡 部分：peek / terminal 已官方化（conversation.view + shell.overlay + turnTail 链 + 节点定义，全部删除 DOM 手段）；ui-restyle 折叠待接管路线调研（进行中） |
+| B7 | 🟠 | 全部 client+host | 自建 `webServer.register` 同源路由 + fetch 是否合规 | ✅ 已解决（调研定性）：`webServer` 是公开 Service 契约，feature 插件自持路由被官方承认（README 原文 "feature plugins own every route"）；`harness.handle`/`host.call` 仅限动态插件、新增 Remote 为构建期装配，npm 插件均不可用。规范 §6/§7 已写明通道与安全边界 |
 | B8 | 🟡 | sqlite / image-reader | Host `name` 导出带 scope 全名，官方一律短名 | ✅ 已改：两处改短名（`dsh-sqlite` / `dsh-image-reader`） |
-| B9 | 🟡 | dsh-peek | 客户端按中文文案 `'预览'` 匹配 tab 并 `.click()` | ❌ 未做（逻辑类，Step 3） |
+| B9 | 🟡 | dsh-peek | 客户端按中文文案 `'预览'` 匹配 tab 并 `.click()` | ✅ 已随 peek 0.5.0 官方化重写移除：点击拦截、文案匹配、DOM 扫描、tab 标记全部删除 |
 | B10 | 🟡 | 全部 | description 语言混用 | ✅ 已改：统一中文 |
 | B11 | 🟡 | ui-restyle | 缺 `repository`；误跟踪 `pnpm-lock.yaml`；字体重复 | ✅ 已改：补 repository、移除 pnpm-lock；`design/fonts/` 保留（原型 HTML 自包含引用 `./fonts/`，不属发布物） |
 | B12 | 🟡 | dsh-sqlite | `scripts/` 未挂接、无说明 | ✅ 已改：`smoke.mjs` 接线为 `npm run smoke`（有 PASS/FAIL 断言与退出码）；`noise-check.mjs` 删除（一次性实验，结论已在 DESIGN.md） |
@@ -29,7 +29,7 @@
 - **Step 0 — 立契约（已完成）**：契约文档 PLUGIN_SPEC.md + 本清单。
 - **Step 1 — 发布闭环**：B3 ✅；B1、B2 ⏸（发布动作用户决定延后，届时按 §8 流程执行）。
 - **Step 2 — 元数据统一（已完成）**：B4 / B5 / B8 / B10 / B11 / B15 全部清零。
-- **Step 3 — 客户端 Slot 化（待做，逻辑类）**：B6 / B7 / B9；按脆度 dsh-peek → ui-restyle → dsh-terminal → dsh-sqlite 评估；B7 需先评估官方 RPC 通道可行性。
+- **Step 3 — 客户端 Slot 化（进行中）**：B7 ✅、B9 ✅；peek（0.5.0）与 terminal（0.2.0）已官方化；剩 ui-restyle——折叠功能走"接管渲染"路线，变更风险调研进行中。
 - **Step 4 — 验证闭环（待做）**：B14 剩余（tag/发布纪律，随发布执行）+ 5 包干净 profile 冒烟（复用 `npm run smoke` 与社区 `dsh-plugin-dev check/verify`）。
 
 每步纪律：改代码 + 同一 commit 更新对应文档（契约改 `docs/PLUGIN_SPEC.md`，目录结构改 `README.md` 总览表）；修完 AUDIT 条目勾选并记 commit。
@@ -38,5 +38,5 @@
 
 - B3 / B4 / B5 / B8 / B10 / B11 / B12 / B13 / B15 ✅ 本批整改（非逻辑类，未改任何运行行为；commit 见 git log）。
 - B14（CHANGELOG 部分）✅ 本批：5 包 CHANGELOG.md 从 git 历史回溯补齐并加入 files 白名单；tag/发布纪律待发布时执行。
-- B6 / B7 / B9 ❌ 待 Step 3（逻辑类）。
+- B7 ✅ 调研定性为官方契约（webServer.register 公开 Service），规范 §6/§7 已写明；B9 ✅ 随 peek 0.5.0 重写移除；B6 🟡 peek/terminal 已官方化，ui-restyle 折叠待接管路线调研。
 - B1 / B2 ⏸ 暂缓（发布延后）。

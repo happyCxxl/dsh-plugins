@@ -20,9 +20,10 @@ dsh plugin --profile web add ./cxxl-dsh-peek-0.4.0.tgz
 ## 使用
 
 1. 让 DSH 生成一些文件（`write` / `edit` 产出 HTML、SVG、Markdown、图片等）。
-2. 每轮结束后，在对话流底部会出现一行**「预览」chips**（列出本轮成功产出的文件）。
-3. 点击某个文件 → 页面内弹出预览面板：标题栏显示文件名与大小，`✕` / `Esc` / 点击遮罩关闭。
-4. 正文里以反引号形式提到的文件名（若未被官方 `ui-deliverables` 抢先提供 `chatFileMentions`）也能点击 → 就地预览。
+2. 每轮结束后，在对话流底部会出现一行**「预览」chips**（列出本轮成功产出的文件，与官方产物 chips 并存）。
+3. 点击某个 chips → 页面内弹出预览面板（官方覆盖层）：标题栏显示文件名与大小，`✕` / 点击遮罩关闭。
+4. 「预览」视图 tab（视图切换栏第三个）显示最近一次预览的文件。
+5. 官方产物 chips 与行内文件提及的点击行为不变（系统打开文件）——本插件不再拦截任何宿主点击。
 
 ## 支持格式
 
@@ -41,15 +42,15 @@ dsh plugin --profile web add ./cxxl-dsh-peek-0.4.0.tgz
 
 | 半 | 文件 | 职责 |
 |---|---|---|
-| Host | `lib/index.js` | `node:fs` 读文件；`webServer` 注册 `meta` / `file` 两个同源路由 |
-| Client | `lib/client.js` | `__ModuleLoader__` 载入；`shell.overlay` 预览面板 + `conversation.chat.turnTail` 产物 chips |
+| Host | `lib/index.js` | `node:fs` 读文件；`webServer` 注册 `meta` / `file` 两个同源路由（公开 Service 契约） |
+| Client | `lib/client.js` | 全部官方 Slot 席位：`conversation.view` 预览视图 + `shell.overlay` 预览面板 + `conversation.chat.turnTail` 链产物 chips；自注册 `ConversationNodeDefinition`（`dsh-peek-produced`）逐回合推导产物路径 |
 
 Host↔Client 走同源 HTTP（与 `dsh-terminal` / `dsh-sqlite` / `dsh-ui-restyle` 同一套 `webServer` 机制），零运行时依赖。
 
 - `GET /dsh-peek/meta?path=…` → 文件名、大小、MIME、归类（image/svg/html/markdown/code/text/pdf/audio/video/other）。
 - `GET /dsh-peek/file?path=…` → 按正确 Content-Type 流式返回文件字节。
 
-产物路径来源：优先读官方 `deliverables` 轮次数据，缺失时回退到遍历本轮 `assistant-step` 的 `tool-call` 块（`write`/`edit` 的 `file_path`）。
+产物路径来源：回合内成功的 `write` / `edit` / 变更型 `str_replace_editor` 调用的 `file_path`（与官方 ui-deliverables 同款推导规则）。
 
 ## 权限与副作用
 
@@ -62,8 +63,7 @@ Host↔Client 走同源 HTTP（与 `dsh-terminal` / `dsh-sqlite` / `dsh-ui-resty
 - **HTML 相对资源**：HTML 用沙箱 iframe 内嵌渲染，自包含 HTML（内联 CSS/JS）可完整预览；引用外部相对资源 / 外链脚本的不保证。
 - **Markdown 精简版**：支持标题 / 加粗 / 斜体 / 行内码 / 代码块 / 链接 / 图片 / 列表 / 引用 / 分隔线；复杂语法（表格、脚注等）可能不完美，md 里的相对图片路径不解析。
 - **单文件上限**：内嵌预览约 512MB，超出提示改用下载。
-- **行内代码提及**：若官方 `ui-deliverables` 已在组合里提供 `chatFileMentions`，本插件不覆盖（避免 provide 冲突），此时正文行内代码提及仍走默认「浏览器打开」；产物 chips 始终走内嵌预览。
-- 工具卡片（`edit`/`write`）行内的文件路径目前仍走默认 `openFile`（另开标签）；请用每轮末尾的「预览」chips 内嵌预览。
+- **行内代码提及与工具卡片路径**：一律走官方默认行为（系统打开文件）；本插件不拦截任何宿主点击，内嵌预览请用每轮末尾的「预览」chips 或「预览」视图。
 
 ## 依赖
 

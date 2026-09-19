@@ -8,41 +8,23 @@ window.__ModuleLoader__.load({
     const { CodeBlock } = require('@deepseek-ai/dsh-client-ui-primitives')
 
     // =========================================================================
-    // dsh-peek 客户端 v0.3 —— 「预览」视图（tab），唤醒式纯预览面。
+    // dsh-peek 客户端（官方化重写，0.5.0）
     //
-    // 与「对话」「轨迹」并列，但它不是常驻浏览列表，而是一个「被唤醒」的预览面：
-    // 用户在对话里点击某个文件产物（本轮产出的 chips / 正文行内代码提及）时，
-    // 拦截这次点击、记住路径，并切到「预览」tab 直接预览那一个文件（而不是
-    // openFile 打开本地/浏览器）。
-    //
-    // 渲染分派（按扩展名）：图片/svg → <img>；html → sandbox iframe；markdown →
-    // 轻量渲染；代码/文本 → <pre>；pdf → iframe；音视频 → 原生标签；其它 → 下载。
+    // 全部 UI 走官方 Slot 体系，不再猜 DOM：
+    //   - 「预览」视图 tab：conversation.view（官方视图席位）
+    //   - 预览面板：shell.overlay（官方覆盖层席位）
+    //   - 每回合产物 chips：conversation.chat.turnTail 链（select 认领，官方链席位）
+    //   - 产物路径推导：自注册 ConversationNodeDefinition（kind: dsh-peek-produced），
+    //     逐回合累积 write/edit/str_replace_editor 成功产物，与 ui-deliverables 同款机制
+    // Host 同源路由 /dsh-peek/meta|file（webServer 公开契约，见 docs/PLUGIN_SPEC.md §6）。
     // =========================================================================
 
     const META_URL = '/dsh-peek/meta'
     const FILE_URL = '/dsh-peek/file'
-
-    const IMAGE_EXT = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.ico', '.avif'])
-    const AUDIO_EXT = new Set(['.mp3', '.wav', '.ogg', '.oga', '.m4a', '.flac'])
-    const VIDEO_EXT = new Set(['.mp4', '.webm', '.mov', '.m4v'])
     const TEXT_KINDS = new Set(['markdown', 'code', 'text', 'html', 'csv'])
 
     // =========================================================================
-    // 工具
-    // =========================================================================
-    function basename(path) {
-      const at = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'))
-      return at === -1 ? path : path.slice(at + 1)
-    }
-    function humanSize(n) {
-      if (!Number.isFinite(n)) return ''
-      if (n < 1024) return n + ' B'
-      if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB'
-      return (n / 1024 / 1024).toFixed(1) + ' MB'
-    }
-
-    // =========================================================================
-    // 唤醒状态：点击文件 → 记住路径 → 切到「预览」tab。
+    // 预览状态（factory 作用域）：覆盖层面板与预览视图共用。
     // =========================================================================
     const previewStore = {
       path: null,
@@ -59,73 +41,135 @@ window.__ModuleLoader__.load({
     }
 
     // =========================================================================
-    // 文件点击拦截（捕获阶段，全局常驻）
+    // 产物路径推导（纯 turn 数据，等价实现官方 deliverables 规则）
     // =========================================================================
-    function looksLikePath(s) {
-      if (typeof s !== 'string' || s.trim() === '') return false
-      if (/[\\/]/.test(s)) return true
-      return /\.[A-Za-z0-9]{1,6}$/.test(s.trim())
+    function mutationPath(name, argsRaw) {
+      let args
+      try {
+        args = JSON.parse(argsRaw)
+      } catch {
+        return null
+      }
+      if (typeof args !== 'object' || args === null || Array.isArray(args)) return null
+      switch (name) {
+        case 'write':
+          return typeof args.content === 'string' ? pathValue(args.file_path) : null
+        case 'edit':
+          return validEditArgs(args) ? pathValue(args.file_path) : null
+        case 'str_replace_editor':
+          return editorMutationPath(args)
+        default:
+          return null
+      }
+    }
+    function validEditArgs(args) {
+      return typeof args.old_string === 'string'
+        && args.old_string.length > 0
+        && typeof args.new_string === 'string'
+        && args.old_string !== args.new_string
+        && (args.replace_all === undefined || typeof args.replace_all === 'boolean')
+    }
+    function editorMutationPath(args) {
+      const path = pathValue(args.path)
+      if (path === null) return null
+      switch (args.command) {
+        case 'create':
+          return typeof args.file_text === 'string' ? path : null
+        case 'str_replace':
+          return typeof args.old_str === 'string'
+            && args.old_str.length > 0
+            && (args.new_str === undefined || typeof args.new_str === 'string')
+            ? path
+            : null
+        case 'insert':
+          return typeof args.insert_line === 'number'
+            && Number.isInteger(args.insert_line)
+            && args.insert_line >= 0
+            && typeof args.new_str === 'string'
+            ? path
+            : null
+        default:
+          return null
+      }
+    }
+    function pathValue(value) {
+      return typeof value === 'string' && value.trim().length > 0 ? value : null
     }
 
-    function findFileTitle(target) {
-      let el = target
-      while (el && el !== document.body) {
-        if (typeof el.getAttribute === 'function') {
-          const title = el.getAttribute('title')
-          if (looksLikePath(title)) return { el, path: title }
+    // 与官方 isAppendSurfaceEvent 对 tool/result 的等价判断（surface.ts：type 命中 + surfaceOp==='append'）。
+    function isAppendToolResult(event) {
+      return event.type === 'tool/result' && event.surfaceOp === 'append'
+    }
+
+    const producedDefinition = {
+      kind: 'dsh-peek-produced',
+      match: (event) => {
+        if (event.type === 'turn/start') return { id: String(event.data.turn), role: 'start' }
+        if (event.type === 'tool/call') return { id: String(event.data.turn), role: 'update' }
+        if (isAppendToolResult(event)) return { id: String(event.data.turn), role: 'update' }
+        return null
+      },
+      start: (context, match) => {
+        if (match.event.type !== 'turn/start') throw new Error('dsh-peek-produced start requires turn/start')
+        return { turn: match.event.data.turn, calls: new Map(), produced: [] }
+      },
+      update: (context, match) => {
+        if (match.event.type === 'tool/call') {
+          const calls = new Map(context.state.calls)
+          calls.set(String(match.event.data.callId), mutationPath(match.event.data.name, match.event.data.arguments))
+          return { ...context.state, calls }
         }
-        el = el.parentElement
-      }
-      return null
-    }
-
-    function switchToPreviewTab() {
-      const tabs = document.querySelectorAll('[role="tab"]')
-      for (const tab of tabs) {
-        if ((tab.textContent || '').trim() === '预览') {
-          tab.click()
-          return true
+        if (match.event.type !== 'tool/result') return context.state
+        const result = match.event.data.message.content[0]
+        if (result.isError === true) return context.state
+        const callId = String(match.event.data.message.source.callId)
+        const path = context.state.calls.get(callId)
+        return path === null || path === undefined
+          ? context.state
+          : { ...context.state, produced: [...context.state.produced, { seq: match.event.seq, path }] }
+      },
+      buildLocationData: (context, scope, previous) => {
+        if (scope !== 'turn' || context.state === undefined) return null
+        if (previous?.kind === 'turn'
+          && previous.turn === context.state.turn
+          && previous.key === 'dsh-peek-produced'
+          && previous.value.produced === context.state.produced) return previous
+        return {
+          kind: 'turn',
+          turn: context.state.turn,
+          key: 'dsh-peek-produced',
+          value: { produced: context.state.produced },
         }
-      }
-      return false
+      },
     }
 
-    function findToolFileLink(target) {
-      let el = target
-      while (el && el !== document.body) {
-        if (el.tagName === 'BUTTON' && typeof el.closest === 'function') {
-          const row = el.closest('[data-tool]')
-          if (row !== null) {
-            const tool = row.getAttribute('data-tool')
-            if (tool === 'read' || tool === 'write' || tool === 'edit') {
-              const text = (el.textContent || '').trim()
-              if (looksLikePath(text)) return { el, path: text }
-            }
-          }
-        }
-        el = el.parentElement
+    function producedForClosing(data, seq) {
+      if (data === undefined) return []
+      const paths = []
+      const seen = new Set()
+      for (const produced of data.produced) {
+        if (produced.seq > (seq === undefined ? Number.POSITIVE_INFINITY : seq) || seen.has(produced.path)) continue
+        seen.add(produced.path)
+        paths.push(produced.path)
       }
-      return null
+      return paths
     }
 
-    function handleDocumentClick(e) {
-      // 1) 产物 chips / 行内提及：带 title 的文件引用
-      const hit = findFileTitle(e.target)
-      if (hit !== null && hit.el.closest('[data-chat-flow-kind], [data-produced-files-row]')) {
-        e.preventDefault()
-        e.stopPropagation()
-        previewStore.set(hit.path)
-        switchToPreviewTab()
-        return
-      }
-      // 2) 工具卡片（write/edit/read）里的文件路径按钮：无 title，文本是相对路径
-      const link = findToolFileLink(e.target)
-      if (link !== null) {
-        e.preventDefault()
-        e.stopPropagation()
-        previewStore.set(link.path)
-        switchToPreviewTab()
-      }
+    // turnTail 链认领：仅当本回合有产物时挂出 chips 行。
+    function selectProducedFiles(owner) {
+      const paths = producedForClosing(owner.turn.data.get('dsh-peek-produced'), owner.seq)
+      return paths.length === 0 ? null : paths
+    }
+
+    function basename(path) {
+      const at = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'))
+      return at === -1 ? path : path.slice(at + 1)
+    }
+    function humanSize(n) {
+      if (!Number.isFinite(n)) return ''
+      if (n < 1024) return n + ' B'
+      if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB'
+      return (n / 1024 / 1024).toFixed(1) + ' MB'
     }
 
     // =========================================================================
@@ -398,23 +442,38 @@ window.__ModuleLoader__.load({
     }
 
     // =========================================================================
-    // 「预览」视图（tab）：纯预览面，只显示当前点击的那一个文件。
+    // 覆盖层：预览面板（shell.overlay 席位）。点遮罩关闭。
+    // =========================================================================
+    function PreviewOverlay() {
+      const path = usePreviewPath()
+      if (path === null) return null
+      return React.createElement('div', {
+        className: 'dsp-overlay',
+        onClick: () => previewStore.set(null),
+      },
+        React.createElement('div', { className: 'dsp-overlay-panel', onClick: (e) => e.stopPropagation() },
+          React.createElement('div', { className: 'dsp-overlay-head' },
+            React.createElement('span', { className: 'dsp-overlay-title' }, '文件预览'),
+            React.createElement('button', {
+              className: 'dsp-overlay-close', type: 'button', 'aria-label': '关闭预览',
+              onClick: () => previewStore.set(null),
+            }, '×'),
+          ),
+          React.createElement('div', { className: 'dsp-overlay-body' },
+            React.createElement(PreviewBody, { path }),
+          ),
+        ),
+      )
+    }
+
+    // =========================================================================
+    // 「预览」视图（conversation.view 席位）：显示最近一次预览的文件。
     // =========================================================================
     function PreviewView() {
       const path = usePreviewPath()
-
-      // 预览激活时：隐藏底部输入框；离开（卸载）时：清除预览状态、让「预览」tab 消失。
-      React.useEffect(() => {
-        document.body.classList.add('dsp-peek-active')
-        return () => {
-          document.body.classList.remove('dsp-peek-active')
-          previewStore.set(null)
-        }
-      }, [])
-
       if (path === null) {
         return React.createElement('div', { className: 'dsp-view' },
-          React.createElement('div', { className: 'dsp-empty' }, '点击对话里的文件，在这里预览'),
+          React.createElement('div', { className: 'dsp-empty' }, '点击对话里每轮末尾的「预览」chips，即可在这里查看文件'),
         )
       }
       return React.createElement('div', { className: 'dsp-view' },
@@ -423,7 +482,27 @@ window.__ModuleLoader__.load({
     }
 
     // =========================================================================
-    // 样式
+    // turnTail 链：本回合产物 chips。点击 → 打开覆盖层预览。
+    // =========================================================================
+    function PeekChips(props) {
+      const paths = props.matched || []
+      if (paths.length === 0) return null
+      return React.createElement('div', { className: 'dsp-chips' },
+        React.createElement('span', { className: 'dsp-chips-label' }, '预览'),
+        React.createElement('div', { className: 'dsp-chips-lane' },
+          paths.map((path) => React.createElement('button', {
+            key: path,
+            type: 'button',
+            className: 'dsp-chip',
+            title: path,
+            onClick: () => previewStore.set(path),
+          }, basename(path))),
+        ),
+      )
+    }
+
+    // =========================================================================
+    // 样式（插件自有样式表，随 fiber 回收；只定义自有组件的类，不碰宿主 DOM）
     // =========================================================================
     const CSS = `
 .dsp-view { display: flex; flex-direction: column; flex: 1; min-height: 0; }
@@ -470,6 +549,36 @@ window.__ModuleLoader__.load({
   text-decoration: none; font-size: 13px; font-weight: 500;
 }
 .dsp-download:hover { filter: brightness(1.06); }
+/* 覆盖层面板 */
+.dsp-overlay {
+  position: absolute; inset: 0; background: rgba(0, 0, 0, .35);
+  display: flex; align-items: center; justify-content: center; padding: 40px;
+}
+.dsp-overlay-panel {
+  width: min(920px, 100%); height: min(640px, 100%);
+  background: var(--dsw-alias-bg-base, #101113);
+  border: 1px solid var(--dsw-alias-border-l2, #2a2c30);
+  border-radius: 12px; box-shadow: 0 18px 60px rgba(0, 0, 0, .45);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.dsp-overlay-head { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-bottom: 1px solid var(--dsw-alias-border-l2, #2a2c30); flex: none; }
+.dsp-overlay-title { font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-secondary, #e6e8eb); flex: 1; }
+.dsp-overlay-close {
+  background: transparent; border: none; color: var(--dsw-alias-label-tertiary, #b7bcc4);
+  font-size: 18px; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 6px;
+}
+.dsp-overlay-close:hover { background: var(--dsw-alias-interactive-bg-hover-solid, rgba(127,127,127,.16)); color: var(--dsw-alias-label-primary, #f2f3f5); }
+.dsp-overlay-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+/* turnTail chips */
+.dsp-chips { display: flex; align-items: center; gap: 8px; padding: 2px 0; flex-wrap: wrap; }
+.dsp-chips-label { font-size: 12px; color: var(--dsw-alias-label-dimmed, #8a8f98); flex: none; }
+.dsp-chips-lane { display: flex; flex-wrap: wrap; gap: 6px; }
+.dsp-chip {
+  border: 1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.12)); background: transparent;
+  color: var(--dsw-alias-label-secondary, #666); cursor: pointer; padding: 3px 10px;
+  font-size: 12px; font-family: var(--dsw-font-family-code, Consolas, monospace); border-radius: 6px;
+}
+.dsp-chip:hover { background: var(--dsw-alias-interactive-bg-hover-solid, rgba(127,127,127,.16)); color: var(--dsw-alias-label-primary, #1a1a1a); }
 /* CSV 表格 */
 .dsp-csv { overflow: auto; }
 .dsp-table { border-collapse: collapse; font-size: 12.5px; font-family: var(--dsw-font-family-code, Consolas, 'Cascadia Mono', monospace); }
@@ -486,11 +595,6 @@ window.__ModuleLoader__.load({
 .dsp-font-specimen { line-height: 1.6; color: var(--dsw-alias-label-primary, #f2f3f5); }
 .dsp-font-big { font-size: 42px; margin-bottom: 18px; }
 .dsp-font-line { font-size: 20px; margin-bottom: 10px; }
-
-/* 预览激活时隐藏底部输入框 */
-body.dsp-peek-active [data-composer-seat] { display: none !important; }
-/* 「预览」tab 非激活时消失（激活时显示） */
-[role="tab"][data-dsp-peek-tab][aria-selected="false"] { display: none !important; }
 `
 
     function injectCss(ctx) {
@@ -502,54 +606,35 @@ body.dsp-peek-active [data-composer-seat] { display: none !important; }
     }
 
     // =========================================================================
-    // apply
+    // apply：全部注册走官方 Slot 席位 + 官方回合数据定义。
     // =========================================================================
     function apply(ctx) {
       injectCss(ctx)
 
-      // 先注册「预览」tab（核心，放最前，保证不会被后续步骤的失败连累）。
-      // order 20 → 排在「对话」(0)「轨迹」(10) 之后，即第三个。
+      // 1) 回合产物数据：自注册 ConversationNodeDefinition（官方机制）。
+      ctx.uiConversation.events.register(producedDefinition)
+
+      // 2) 「预览」视图 tab（官方视图席位）。
       ctx.slots.inject('conversation.view', () => ctx.slots.register(
-        { name: 'conversation.view', id: 'preview', order: 20, label: '预览' },
+        { name: 'conversation.view', id: 'preview', order: 20, label: () => '预览' },
         () => React.createElement(PreviewView),
       ))
 
-      // 给「预览」tab 打标记，配合 CSS 实现「非激活时消失」。
-      const tagPreviewTab = () => {
-        const tabs = document.querySelectorAll('[role="tab"]')
-        for (const tab of tabs) {
-          if ((tab.textContent || '').trim() === '预览') {
-            tab.setAttribute('data-dsp-peek-tab', '')
-          }
-        }
-      }
-      ctx.effect(() => {
-        tagPreviewTab()
-        const observer = new MutationObserver(() => tagPreviewTab())
-        observer.observe(document.body, {
-          childList: true,
-          subtree: true,
-          attributes: true,
-          attributeFilter: ['aria-selected'],
-        })
-        return () => observer.disconnect()
-      }, 'dsh-peek: tab tagging')
+      // 3) turnTail 链：本回合产物 chips（官方链席位，select 认领）。
+      ctx.slots.inject('conversation.chat.turnTail', () => ctx.slots.register(
+        { name: 'conversation.chat.turnTail', select: selectProducedFiles },
+        (props) => React.createElement(PeekChips, props),
+      ))
 
-      // 再注册全局点击拦截（捕获阶段），并做容错：即便失败也不影响 tab。
-      try {
-        ctx.effect(() => {
-          document.addEventListener('click', handleDocumentClick, true)
-          return () => document.removeEventListener('click', handleDocumentClick, true)
-        }, 'dsh-peek: file-click interception')
-      } catch (err) {
-        console.error('[dsh-peek] click interception setup failed:', err)
-      }
-
-      console.log('[dsh-peek] client apply done')
+      // 4) 覆盖层：预览面板（官方覆盖层席位）。
+      ctx.slots.inject('shell.overlay', () => ctx.slots.register(
+        { name: 'shell.overlay', id: 'dsh-peek-preview', order: 10 },
+        () => React.createElement(PreviewOverlay),
+      ))
     }
 
     exports.apply = apply
-    exports.inject = ['slots']
+    exports.inject = ['slots', 'uiConversation']
     exports.name = 'dsh-peek'
     return module.exports
   },

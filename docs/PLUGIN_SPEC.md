@@ -101,11 +101,12 @@ plugins/<npm包名>/
 - **UI 组合唯一通道是 Slot**：`ctx.slots.register({ name, children?, store?, inject? }, Component)`，等待声明用 `ctx.slots.inject(name, () => slots.register(...))`。**禁止** `document.querySelector*` 猜选择器、禁止 `document.body`/`window` 全局摆弄、禁止模块级 UI 副作用。
 - **样式**：全局主题走 theme tokens（`Theme.listTokens` + theme Service）；插件私有样式走 `styles.insert(css)`。禁止硬编码产品选择器/构建哈希类名。
 - **文案**：产品可见文案进 locale 字典；内部匹配用判别式/稳定 id，**禁止按本地化文本匹配**。
-- **client↔host 通道**：动态插件的官方通道是 `harness.handle` + `host.call`。npm 客户端插件目前没有官方文档化的私有 RPC 通道——自建 `webServer` 同源路由属非契约面用法（现状如此，AUDIT B7 立项重评估；**新插件不得再沿用**，除非 Step 3 结论支持）。
+- **client↔host 通道**：动态插件的官方通道是 `harness.handle` + `host.call`（仅 `cordis_define` 沙箱存在）。**npm 插件的官方通道是 `ctx.webServer.register` 注册自定义同源路由 + 客户端 fetch**——`webServer` 是公开 Service（exact/prefix 协议，重复路由抛错），官方明示 feature 插件自持路由。`api-remotes` 的 Remote 路由是构建期装配，第三方运行时无注册面；`harness.handle`/`host.call` 对 npm bundle 插件不可用。安全边界见第 7 节。
 
 ## 7. 权限、安全与兼容性
 
 - README 必须含**权限清单与副作用**（如 `filesystem:read`）；出站网络要写明端点。
+- **自建 webServer 路由安全**：webServer 路由无鉴权、无 Origin 策略，属插件自管边界——必须校验入参、限定可访问路径（只读路由只读文件、写路由校验输入大小与合法性），不得把路由做成任意文件/命令代理。
 - 绝不嵌入凭据；凭据走 credentials 服务或环境变量。
 - 不改 DSH 自带预设与宿主核心；不放松沙箱。
 - README 写 Compatibility 表：`Harness 0.1.2-alpha.5 / Node ^22.19 || >=24`。rc 期 API 变动快，发布必须标注。

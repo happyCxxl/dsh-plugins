@@ -2,9 +2,10 @@
 
 本插件版本记录（语义化版本）。
 
-## Unreleased
+## 0.5.0 — 2026-09-20
 
-- 元数据与文档对齐规范：安装示例改两通道（npm/tarball，删目录安装）、engines 统一官方口径、补 `publishConfig`（2026-09-19，随下次发布生效）。
+- 官方化重写：预览视图走 `conversation.view`、预览面板走 `shell.overlay`、每回合产物 chips 走 `conversation.chat.turnTail` 链（select 认领）、产物路径由自注册 `ConversationNodeDefinition`（`dsh-peek-produced`）逐回合推导；删除全局点击拦截、DOM 扫描、按文案切 tab、隐藏输入框等全部非契约手段。
+- 行为变化：官方产物 chips 与行内文件提及点击回落为系统打开文件；内嵌预览入口变为本插件自有的「预览」chips 与「预览」视图。
 
 ## 0.4.0 — 2026-09-18
 

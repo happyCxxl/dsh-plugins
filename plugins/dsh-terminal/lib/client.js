@@ -322,8 +322,6 @@ window.__ModuleLoader__.load({
     let nextKey = 1
     let activeKey = null
     let userExited = false // 用户已全部退出：切回 tab 不再自动重开
-    let slotsService = null // apply 时注入的 slots 服务（代理绑定到本插件 fiber）
-    let viewTabDisposer = null // 终端 view tab 的注销函数；null = 当前未注册
 
     function newRecord(key) {
       return { key, hostId: null, seq: 0, emu: null, info: { pid: null, cwd: '', shell: '', error: '', exitCode: null }, status: 'idle' }
@@ -339,30 +337,8 @@ window.__ModuleLoader__.load({
       }
     }
 
-    // —— 终端 tab 的显隐（手动注册/注销 conversation.view 条目） ——
-    function isViewTabLive() {
-      if (!slotsService) return false
-      const entries = slotsService.entries('conversation.view')
-      for (let i = 0; i < entries.length; i++) {
-        if (entries[i].options && entries[i].options.id === 'terminal') return true
-      }
-      return false
-    }
-    function registerViewTab() {
-      if (!slotsService || isViewTabLive()) return
-      viewTabDisposer = null
-      try {
-        viewTabDisposer = slotsService.register(
-          { name: 'conversation.view', id: 'terminal', order: 20, label: 'Terminal' },
-          (props) => React.createElement(TerminalView, props),
-        )
-      } catch (err) {
-        viewTabDisposer = null // 槽位尚未声明，由 apply 里的 subscribe 在声明后重试
-      }
-    }
-    function unregisterViewTab() {
-      if (viewTabDisposer) { const d = viewTabDisposer; viewTabDisposer = null; d() }
-    }
+    // 终端 tab 由 apply 用官方 slots.inject('conversation.view') 常驻注册；
+    // 会话全部退出后 tab 仍在，视图内显示空态与「启动终端」按钮。
 
     function TerminalView(props) {
       const sessionId = props.sessionId
@@ -447,8 +423,7 @@ window.__ModuleLoader__.load({
             activeKey = remaining[remaining.length - 1]
           } else {
             activeKey = null
-            userExited = true // 关掉最后一个 → 完全退出，隐藏 tab
-            unregisterViewTab()
+            userExited = true // 关掉最后一个 → 空态（tab 常驻，视图内显示「启动终端」）
           }
         }
         bump()
@@ -461,7 +436,6 @@ window.__ModuleLoader__.load({
         sessions.clear()
         activeKey = null
         userExited = true
-        unregisterViewTab()
         bump()
       }
 
@@ -559,7 +533,7 @@ window.__ModuleLoader__.load({
         if (v && v.length > 0) { send(v); e.target.value = '' }
       }
 
-      return React.createElement('div', { className: 'dwt', 'data-conversation-composer-overlay': '', 'data-dwt-terminal': '', onMouseDown: focus },
+      return React.createElement('div', { className: 'dwt', 'data-dwt-terminal': '', onMouseDown: focus },
         React.createElement('div', { className: 'dwt-tabs' },
           keys.map((key) => {
             const s = sessions.get(key)
@@ -611,45 +585,6 @@ window.__ModuleLoader__.load({
       )
     }
 
-    function clickTabByLabel(label) {
-      try {
-        const tabs = document.querySelectorAll('[role="tab"]')
-        for (let i = 0; i < tabs.length; i++) {
-          if ((tabs[i].textContent || '').trim() === label) {
-            tabs[i].click()
-            return true
-          }
-        }
-      } catch { /* 忽略 */ }
-      return false
-    }
-
-    function wakeTerminal() {
-      userExited = false
-      registerViewTab()
-      // tab 栏在微任务里刷新后才出现，用重试等它挂到 DOM 再点击切换
-      const attempt = (n) => {
-        if (clickTabByLabel('Terminal')) return
-        if (n > 0) setTimeout(() => attempt(n - 1), 30)
-      }
-      setTimeout(() => attempt(12), 0)
-    }
-
-    function TerminalToggle() {
-      return React.createElement('button', {
-        type: 'button',
-        className: 'dwt-toggle',
-        title: '打开终端',
-        onClick: () => wakeTerminal(),
-      },
-        React.createElement('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
-          React.createElement('rect', { x: 3, y: 4, width: 18, height: 16, rx: 2 }),
-          React.createElement('path', { d: 'M7 9l3 3-3 3' }),
-          React.createElement('path', { d: 'M12 15h5' }),
-        ),
-      )
-    }
-
     const CSS = `
       .dwt { height: 100%; min-height: 0; background: var(--dsw-alias-bg-base, #ffffff); color: var(--dsw-alias-label-primary, #1a1a1a); display: flex; flex-direction: column; overflow: hidden; font-family: "Cascadia Mono", Consolas, "Courier New", monospace; font-size: 13px; }
       .dwt-tabs { display: flex; align-items: center; gap: 2px; padding: 4px 6px 0; background: var(--dsw-alias-bg-layer-1, #f7f7f7); border-bottom: 1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.12)); flex: none; overflow-x: auto; }
@@ -674,9 +609,6 @@ window.__ModuleLoader__.load({
       .dwt-start:hover { opacity: 0.9; }
       .dwt-input { position: fixed; left: 0; top: 0; width: 2px; height: 2px; opacity: 0; border: 0; padding: 0; margin: 0; outline: none; resize: none; }
       .dwt-measure { position: absolute; display: inline-block; line-height: 1.25; visibility: hidden; white-space: pre; pointer-events: none; }
-      .dwt-toggle { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 26px; background: transparent; border: 1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.12)); color: var(--dsw-alias-label-secondary, #666); cursor: pointer; padding: 0; border-radius: 6px; }
-      .dwt-toggle:hover { background: var(--dsw-alias-interactive-bg-hover-solid, rgba(127,127,127,.16)); color: var(--dsw-alias-label-primary, #1a1a1a); }
-      [data-conversation-scroll]:has([data-dwt-terminal]) > [data-composer-seat] { display: none !important; }
     `
 
     function injectCss(ctx) {
@@ -689,7 +621,6 @@ window.__ModuleLoader__.load({
 
     function apply(ctx) {
       injectCss(ctx)
-      slotsService = ctx.slots
       ctx.effect(() => () => {
         for (const s of sessions.values()) {
           if (s.hostId) post('/dsh-terminal-api/close', { id: s.hostId }).catch(() => {})
@@ -697,29 +628,13 @@ window.__ModuleLoader__.load({
         sessions.clear()
         activeKey = null
         userExited = false
-        slotsService = null
-        viewTabDisposer = null
       }, 'dsh-terminal: close sessions on unload')
 
-      // 终端 tab：手动注册/注销，支撑「完全退出时消失、唤醒时重现」。
-      // subscribe 在槽位声明或条目增减时触发，用于等待声明时序后重试注册。
-      registerViewTab()
-      const unsubscribe = ctx.slots.subscribe('conversation.view', () => {
-        if (!userExited) registerViewTab()
-      })
-      ctx.effect(() => () => unsubscribe(), 'dsh-terminal: conversation.view watch')
-
-      // 工具行按钮：始终存在，唤醒/切到终端。
-      ctx.slots.inject('conversation.input.right', () => {
-        try {
-          return ctx.slots.register(
-            { name: 'conversation.input.right', id: 'dsh-terminal-toggle', order: 100, label: 'Terminal' },
-            () => React.createElement(TerminalToggle),
-          )
-        } catch (error) {
-          console.error('[dsh-terminal] toggle registration failed:', error)
-        }
-      })
+      // 终端视图：官方 slots.inject 模式常驻注册（自动等待槽位声明、随 fiber 回收）。
+      ctx.slots.inject('conversation.view', () => ctx.slots.register(
+        { name: 'conversation.view', id: 'terminal', order: 20, label: () => 'Terminal' },
+        (props) => React.createElement(TerminalView, props),
+      ))
     }
 
     exports.apply = apply
