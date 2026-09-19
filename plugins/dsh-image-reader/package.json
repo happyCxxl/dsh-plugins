@@ -1,0 +1,45 @@
+{
+  "name": "@cxxl/dsh-image-reader",
+  "version": "0.1.0",
+  "description": "DSH plugin: 让纯文本会话模型也能读取用户上传的图片——注册一条声明图片能力的新路由，在适配器层把图片交给视觉模型转成文字，再委托给纯文本 DeepSeek。",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.19"
+  },
+  "scripts": {
+    "prepublishOnly": "node ../../scripts/check-publish-files.mjs"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/schemastery": "^3.18.2"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "keywords": [
+    "dsh-plugin",
+    "vision",
+    "image",
+    "multimodal",
+    "deepseek-harness"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/happyCxxl/dsh-plugins.git",
+    "directory": "plugins/dsh-image-reader"
+  }
+}

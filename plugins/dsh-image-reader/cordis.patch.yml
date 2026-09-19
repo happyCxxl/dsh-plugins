@@ -1,0 +1,6 @@
+# dsh-image-reader bundle patch：注册一条声明图片能力的新 provider 路由，
+# 在适配器层把图片转成文字再委托给纯文本 DeepSeek——不改动、不禁用任何核心行。
+# 安装：dsh plugin --profile <name> add <tgz路径|包名>，然后**重启一次**（bundle 层只在 boot 时读取）。
+- insert:
+    - id: dsh-image-reader
+      name: '@cxxl/dsh-image-reader'
