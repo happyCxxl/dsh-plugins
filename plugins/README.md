@@ -1,5 +1,7 @@
 # plugins/
 
+> 权威开发规范见 [docs/PLUGIN_SPEC.md](../docs/PLUGIN_SPEC.md)；本文件保留 plugins/ 目录速览。
+
 正式插件目录：每个插件 = 一个**独立的 npm 包**。发布到 npm 后，用户一条命令安装：
 
 ```powershell
