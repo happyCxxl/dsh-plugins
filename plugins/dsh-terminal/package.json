@@ -1,6 +1,9 @@
 {
   "name": "@cxxl/dsh-terminal",
   "version": "0.1.7",
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "DSH Web 内置交互式终端：底部工具窗口打开真实 PowerShell（PTY），像 IDEA 一样在浏览器里敲命令。",
   "type": "module",
   "main": "lib/index.js",
@@ -18,7 +21,7 @@
     "LICENSE"
   ],
   "engines": {
-    "node": ">=22.5"
+    "node": "^22.19.0 || >=24.0.0"
   },
   "scripts": {
     "prepublishOnly": "node ../../scripts/check-publish-files.mjs"

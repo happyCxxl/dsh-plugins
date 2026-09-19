@@ -1,6 +1,9 @@
 {
   "name": "@cxxl/dsh-peek",
   "version": "0.4.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "DSH Web 内嵌文件预览：点击对话里本轮生成的产物文件（HTML / SVG / Markdown / 图片 / PDF / 代码 / CSV / 字体等）就地预览，不另开浏览器标签、也不用在本地打开文件。",
   "type": "module",
   "main": "lib/index.js",
@@ -18,7 +21,7 @@
     "LICENSE"
   ],
   "engines": {
-    "node": ">=22.5"
+    "node": "^22.19.0 || >=24.0.0"
   },
   "scripts": {
     "prepublishOnly": "node ../../scripts/check-publish-files.mjs"

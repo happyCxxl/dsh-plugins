@@ -1,7 +1,10 @@
 {
   "name": "@cxxl/dsh-image-reader",
   "version": "0.1.0",
-  "description": "DSH plugin: 让纯文本会话模型也能读取用户上传的图片——注册一条声明图片能力的新路由，在适配器层把图片交给视觉模型转成文字，再委托给纯文本 DeepSeek。",
+  "publishConfig": {
+    "access": "public"
+  },
+  "description": "让纯文本会话模型也能读取用户上传的图片——注册一条声明图片能力的新路由，在适配器层把图片交给视觉模型转成文字，再委托给纯文本 DeepSeek。",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -16,7 +19,7 @@
     "LICENSE"
   ],
   "engines": {
-    "node": ">=22.19"
+    "node": "^22.19.0 || >=24.0.0"
   },
   "scripts": {
     "prepublishOnly": "node ../../scripts/check-publish-files.mjs"

@@ -9,10 +9,12 @@ dsh plugin --profile web add @cxxl/dsh-peek
 # 装完重启一次（bundle 层只在启动时读取）
 ```
 
-本地开发可用目录或 tarball 安装（见仓库 dev-notes D15，推荐 tarball 通道避免 junction 悬空）：
+本地开发用 tarball 通道（不要 add 本地目录：junction 悬空陷阱，见仓库 dev-notes D15）：
 
 ```powershell
-dsh plugin --profile web add ./plugins/dsh-peek
+cd plugins/dsh-peek
+npm pack                                   # 产出 cxxl-dsh-peek-0.4.0.tgz
+dsh plugin --profile web add ./cxxl-dsh-peek-0.4.0.tgz
 ```
 
 ## 使用

@@ -8,7 +8,7 @@ import { toolDefs } from './tools.js'
 import * as engine from './engine.js'
 import { COLLAB_RULE, createCoordination, frame, onPostExecute, preStepTexts } from './coordination.js'
 
-export const name = '@cxxl/dsh-sqlite'
+export const name = 'dsh-sqlite'
 export const inject = ['tools', 'webServer', 'systemPrompt']
 
 function sendJson(res, code, payload) {

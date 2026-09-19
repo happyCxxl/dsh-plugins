@@ -58,6 +58,10 @@ dsh plugin --profile web add ./cxxl-dsh-image-reader-0.1.0.tgz
 
 Host 端透明适配器包装（无浏览器端，不声明 `dsh.client`）：`apply` 里取到核心 `deepseek-official` 适配器后，运行时包装它的 `resolveModel`（对纯文本模型声明 `inputModalities: ['text','image']`，让门禁放行）和 `prepareCall`（对纯文本模型返回包装过的 `stream`，先转译图片再委托原始流）。
 
+## 依赖策略
+
+Config 形态（见 `docs/PLUGIN_SPEC.md` §3.1）：仅 `@deepseek-ai/schemastery` 声明为 `peerDependencies`（版本对齐宿主自带 3.18.2，用于 Config 校验），不 import 其他 harness 包。
+
 ## 权限与副作用
 
 - **运行时包装核心适配器**：插件在启动时对 `deepseek-official` 适配器做运行时包装（不修改任何源文件、不禁用任何核心行）。卸载 `dsh plugin --profile web remove @cxxl/dsh-image-reader` 后重启即恢复原状。

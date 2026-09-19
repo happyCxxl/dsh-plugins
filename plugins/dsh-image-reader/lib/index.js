@@ -13,7 +13,7 @@
 // （混用两种形态会让 Loader 丢弃其中一套）。
 import z from '@deepseek-ai/schemastery'
 
-export const name = '@cxxl/dsh-image-reader'
+export const name = 'dsh-image-reader'
 export const inject = ['llm', 'attachments']
 
 const DEFAULT_INSTRUCTION = [

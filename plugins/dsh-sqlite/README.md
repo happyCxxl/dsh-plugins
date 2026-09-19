@@ -62,3 +62,13 @@ dsh plugin --profile web add @cxxl/dsh-sqlite
 ## 引擎
 
 Node 内置 `node:sqlite`（实验性，Node ≥ 22.5），零原生依赖；所有引擎调用隔离在 `lib/engine.js`，可整体替换为 better-sqlite3 而不动其余代码。
+
+## 依赖策略
+
+peer 复用形态（见 `docs/PLUGIN_SPEC.md` §3.1）：`@deepseek-ai/cordis`、`@deepseek-ai/dsh-tools`、`@deepseek-ai/dsh-llm` 声明为 `peerDependencies`，复用宿主自带实例——避免进程内出现第二份 cordis 造成 Symbol 分裂、调度器静默崩溃。
+
+## 权限与副作用
+
+- **权限**：读写 `~/.dsh/data/*.db`（本机文件）；无任何网络请求。
+- **副作用**：注入常驻提示词规则（约 40 token/回合，可被模型判断覆盖）；注册 `/dsh-sqlite-api/*` 三个同源只读路由（表浏览设置页）；监听工具执行事件做协作提醒（观察者语义，绝不修改执行链路）；插件停用时关闭全部库连接并回收注册。
+- **冒烟测试**：`npm run smoke`（在插件目录执行；临时数据目录，零污染，退出码非 0 即失败）。

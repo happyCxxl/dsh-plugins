@@ -84,6 +84,10 @@ dsh plugin --profile web add @cxxl/dsh-ui-restyle
 
 > **改宿主侧代码（`lib/index.js`）必须重启**；只改 `lib/client.js` 时浏览器端 HMR 会热重载，刷新即可。
 
+## 依赖策略
+
+零 harness import 形态（见 `docs/PLUGIN_SPEC.md` §3.1）：只用 Node 内置模块 + 宿主服务 `webServer`，不 import 任何 harness 包——避免进程内第二份 cordis 造成 Symbol 分裂。
+
 ## 与原生「回合过程折叠」的关系（重要）
 
 DSH 自带 Turn-process 折叠（设置 → **对话视图**）：

@@ -1,7 +1,10 @@
 {
   "name": "@cxxl/dsh-sqlite",
   "version": "0.3.2",
-  "description": "DSH plugin: persistent SQLite tools for the agent (sqlite_query / sqlite_exec / sqlite_tables / sqlite_export / sqlite_import), a read-only table browser settings page, and a persistence-usage prompt rule — zero runtime deps beyond Node 22 node:sqlite.",
+  "publishConfig": {
+    "access": "public"
+  },
+  "description": "DSH 插件：为 agent 提供持久 SQLite 工具（sqlite_query / sqlite_exec / sqlite_tables / sqlite_export / sqlite_import）、只读表浏览设置页与持久化使用提示词规则——除 Node 22 内置 node:sqlite 外零运行时依赖。",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -24,7 +27,8 @@
     "node": ">=22.5"
   },
   "scripts": {
-    "prepublishOnly": "node ../../scripts/check-publish-files.mjs"
+    "prepublishOnly": "node ../../scripts/check-publish-files.mjs",
+    "smoke": "node scripts/smoke.mjs"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
