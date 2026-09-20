@@ -1,0 +1,88 @@
+/* dsh-peek 样式表：随包发布。Host 经 /dsh-peek/styles.css 同源路由服务，
+   客户端启动时拉取注入（只定义自有组件的类，不碰宿主 DOM）。 */
+.dsp-detail { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.dsp-bar {
+  display: flex; align-items: center; gap: 10px; flex: none;
+  padding: 8px 16px; border-bottom: 1px solid var(--dsw-alias-border-l2, #2a2c30);
+}
+.dsp-bar-title {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-secondary, #e6e8eb);
+  font-family: var(--dsw-font-family-code, Consolas, 'Cascadia Mono', monospace);
+}
+.dsp-bar-size { flex: none; font-size: 11px; color: var(--dsw-alias-label-dimmed, #8a8f98); }
+.dsp-copy {
+  flex: none; border: 1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.12));
+  background: transparent; color: var(--dsw-alias-label-secondary, #666);
+  cursor: pointer; padding: 3px 12px; border-radius: 6px; font-size: 12px;
+}
+.dsp-copy:hover { background: var(--dsw-alias-interactive-bg-hover-solid, rgba(127,127,127,.16)); color: var(--dsw-alias-label-primary, #1a1a1a); }
+.dsp-detail-body { flex: 1; min-height: 0; overflow: auto; }
+/* Markdown 左右分屏 */
+.dsp-split { display: flex; flex: 1; min-height: 0; }
+.dsp-split-src {
+  flex: 0 0 44%; min-width: 0; overflow: auto;
+  border-right: 1px solid var(--dsw-alias-border-l2, #2a2c30);
+}
+.dsp-split-preview { flex: 1; min-width: 0; overflow: auto; }
+.dsp-mdwrap { padding: 18px 26px 28px; font-size: 14px; line-height: 1.7; color: var(--dsw-alias-label-primary, #f2f3f5); }
+.dsp-src {
+  margin: 0; padding: 14px 20px 20px;
+  font-family: var(--dsw-font-family-code, Consolas, 'Cascadia Mono', monospace);
+  font-size: 12.5px; line-height: 1.6; white-space: pre-wrap; word-break: break-all;
+  color: var(--dsw-alias-label-secondary, #e6e8eb);
+}
+.dsp-readwrap { padding: 8px 0; }
+.dsp-mediawrap { display: flex; align-items: center; justify-content: center; min-height: 200px; height: 100%; padding: 18px; }
+.dsp-media { display: block; max-width: 100%; max-height: 100%; margin: 0 auto; object-fit: contain; }
+.dsp-frame { width: 100%; height: 100%; border: 0; background: #fff; }
+.dsp-status { color: var(--dsw-alias-label-dimmed, #8a8f98); padding: 28px 0; text-align: center; font-size: 13px; }
+.dsp-error { color: var(--dsw-alias-state-error-primary, #f14c4c); }
+.dsp-other { text-align: center; padding: 36px 0; }
+.dsp-other p { color: var(--dsw-alias-label-tertiary, #b7bcc4); font-size: 13px; }
+/* 覆盖层面板 */
+.dsp-overlay {
+  position: absolute; inset: 0; background: rgba(0, 0, 0, .4);
+  display: flex; align-items: center; justify-content: center; padding: 40px;
+}
+.dsp-overlay-panel {
+  width: min(1040px, 100%); height: min(720px, 100%);
+  background: var(--dsw-alias-bg-layer-1, #17181b);
+  border: 1px solid var(--dsw-alias-border-l2, #2a2c30);
+  border-radius: 14px; box-shadow: 0 24px 80px rgba(0, 0, 0, .55);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.dsp-overlay-head { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--dsw-alias-border-l2, #2a2c30); flex: none; }
+.dsp-overlay-title { font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-primary, #f2f3f5); flex: 1; }
+.dsp-overlay-close {
+  background: transparent; border: none; color: var(--dsw-alias-label-tertiary, #b7bcc4);
+  font-size: 18px; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 6px;
+}
+.dsp-overlay-close:hover { background: var(--dsw-alias-interactive-bg-hover-solid, rgba(127,127,127,.16)); color: var(--dsw-alias-label-primary, #f2f3f5); }
+.dsp-overlay-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+/* turnTail chips */
+.dsp-chips { display: flex; align-items: center; gap: 8px; padding: 2px 0; flex-wrap: wrap; }
+.dsp-chips-label { font-size: 12px; color: var(--dsw-alias-label-dimmed, #8a8f98); flex: none; }
+.dsp-chips-lane { display: flex; flex-wrap: wrap; gap: 6px; }
+.dsp-chip {
+  border: 1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.12)); background: transparent;
+  color: var(--dsw-alias-label-secondary, #666); cursor: pointer; padding: 3px 10px;
+  font-size: 12px; font-family: var(--dsw-font-family-code, Consolas, monospace); border-radius: 6px;
+}
+.dsp-chip:hover { background: var(--dsw-alias-interactive-bg-hover-solid, rgba(127,127,127,.16)); color: var(--dsw-alias-label-primary, #1a1a1a); }
+/* CSV 表格 */
+.dsp-csv { overflow: auto; padding: 16px 22px; }
+.dsp-table { border-collapse: collapse; font-size: 12.5px; font-family: var(--dsw-font-family-code, Consolas, 'Cascadia Mono', monospace); }
+.dsp-table th, .dsp-table td {
+  border: 1px solid var(--dsw-alias-border-l2, #2a2c30);
+  padding: 4px 10px; text-align: left; white-space: nowrap;
+}
+.dsp-table th { background: var(--dsw-alias-bg-base, #101113); color: var(--dsw-alias-label-secondary, #e6e8eb); font-weight: 600; position: sticky; top: 0; }
+.dsp-table td { color: var(--dsw-alias-label-secondary, #e6e8eb); }
+.dsp-csv-more { padding: 10px 0 0; font-size: 12px; color: var(--dsw-alias-label-dimmed, #8a8f98); }
+/* 字体预览 */
+.dsp-font { padding: 20px 26px; }
+.dsp-font-name { font-size: 12px; color: var(--dsw-alias-label-dimmed, #8a8f98); margin-bottom: 14px; font-family: var(--dsw-font-family-code, Consolas, monospace); }
+.dsp-font-specimen { line-height: 1.6; color: var(--dsw-alias-label-primary, #f2f3f5); }
+.dsp-font-big { font-size: 42px; margin-bottom: 18px; }
+.dsp-font-line { font-size: 20px; margin-bottom: 10px; }

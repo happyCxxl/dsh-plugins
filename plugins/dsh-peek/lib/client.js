@@ -8,24 +8,24 @@ window.__ModuleLoader__.load({
     const { MarkdownText, ReadBlock, writeClipboard } = require('@deepseek-ai/dsh-client-ui-primitives')
 
     // =========================================================================
-    // dsh-peek 客户端（0.5.3）
+    // dsh-peek 客户端（0.5.5）——零构建单 bundle 形态（浏览器端没有相对 import 解析，
+    // 保持单文件），按下方分区组织。分区索引：
+    //   ① 常量与标签        ② 预览状态（覆盖层面板读取）
+    //   ③ 点击接管（约定偏差） ④ 产物路径推导（回合数据，官方节点定义机制）
+    //   ⑤ CSV / 字体渲染    ⑥ 预览体（按 Host kind 分派）
+    //   ⑦ 覆盖层面板 / 回合 chips  ⑧ 样式注入（lib/styles.css，经 Host 路由拉取）/ 入口装配
     //
-    // 官方 Slot 体系 + 一处文档化约定偏差：
-    //   - 预览面板：shell.overlay（官方覆盖层席位）——预览即浮层，与官方产品语言一致，
-    //     不设独立「预览」视图
-    //   - 每回合产物 chips：conversation.chat.turnTail 链（select 认领，官方链席位）
-    //   - 产物路径推导：自注册 ConversationNodeDefinition（kind: dsh-peek-produced），
-    //     逐回合累积 write/edit/str_replace_editor 成功产物，与 ui-deliverables 同款机制
-    //   - 代码/文本：官方 ReadBlock（行号 + shiki 语法高亮，IDEA 式文件视图）
-    //   - Markdown：左右分屏（左原文 / 右官方 MarkdownText 预览）
-    //   - 约定偏差：官方 openFile 无接管钩子——以捕获阶段点击监听把官方产物 chips、
-    //     行内文件提及与工具卡片（read/write/edit）路径改为内嵌预览（data-* 层经调研
-    //     跨 20 个发布版零破坏）
-    // Host 同源路由 /dsh-peek/meta|file（webServer 公开契约，见 docs/PLUGIN_SPEC.md §6）。
+    // 官方席位：shell.overlay 预览面板 + conversation.chat.turnTail 链产物 chips +
+    // 自注册 ConversationNodeDefinition（dsh-peek-produced）——预览即浮层，不设独立
+    // 「预览」视图。格式由 Host EXT_KIND 声明：未声明的格式只提示暂不支持（不渲染、
+    // 不下载）。一处约定偏差：官方 openFile 无接管钩子，以捕获阶段点击监听把官方产物
+    // chips、行内文件提及与工具卡片（read/write/edit）路径改为内嵌预览（data-* 层
+    // 经调研跨 20 个发布版零破坏）。
     // =========================================================================
 
     const META_URL = '/dsh-peek/meta'
     const FILE_URL = '/dsh-peek/file'
+    // 需要先拉取文本正文的 kind（meta 返回 kind 后按需 fetch）。
     const TEXT_KINDS = new Set(['markdown', 'code', 'text', 'html', 'csv'])
     const MD_LABELS = { code: { copyLabel: '复制', copiedLabel: '已复制' }, footnotes: '脚注' }
     const READ_LABELS = {
@@ -382,52 +382,53 @@ window.__ModuleLoader__.load({
         }).catch(() => {})
       }
 
+      // 渲染器注册表：kind → 渲染函数，与 Host EXT_KIND 声明制对称。
+      // 新增格式 = Host 登记扩展名 + 此处登记一个渲染器；未登记的 kind 落「暂不支持」。
+      const renderMedia = () => React.createElement('div', { className: 'dsp-mediawrap' },
+        React.createElement('img', { className: 'dsp-media', src: fileUrl, alt: name }),
+      )
+      const renderReadBlock = () => React.createElement('div', { className: 'dsp-readwrap' },
+        React.createElement(ReadBlock, {
+          label: path,
+          lines,
+          totalLines: lines.length,
+          lang,
+          maxLines: READ_MAX_LINES,
+          labels: READ_LABELS,
+        }),
+      )
+      const RENDERERS = {
+        image: renderMedia,
+        svg: renderMedia,
+        html: () => React.createElement('iframe', { className: 'dsp-frame', sandbox: 'allow-scripts', srcDoc: text, title: name }),
+        markdown: () => React.createElement('div', { className: 'dsp-split' },
+          React.createElement('div', { className: 'dsp-split-src' },
+            React.createElement('pre', { className: 'dsp-src' }, text),
+          ),
+          React.createElement('div', { className: 'dsp-split-preview' },
+            React.createElement('div', { className: 'dsp-mdwrap' },
+              React.createElement(MarkdownText, { text, labels: MD_LABELS }),
+            ),
+          ),
+        ),
+        code: renderReadBlock,
+        text: renderReadBlock,
+        pdf: () => React.createElement('iframe', { className: 'dsp-frame', src: fileUrl, title: name }),
+        font: () => React.createElement(FontPreview, { path, name }),
+        csv: () => React.createElement(CsvTable, { text, ext }),
+      }
+
       function renderBody() {
         if (phase === 'loading') return React.createElement('div', { className: 'dsp-status' }, '加载中…')
         if (phase === 'error') return React.createElement('div', { className: 'dsp-status dsp-error' }, error)
-        switch (kind) {
-          case 'image':
-          case 'svg':
-            return React.createElement('div', { className: 'dsp-mediawrap' },
-              React.createElement('img', { className: 'dsp-media', src: fileUrl, alt: name }),
-            )
-          case 'html':
-            return React.createElement('iframe', { className: 'dsp-frame', sandbox: 'allow-scripts', srcDoc: text, title: name })
-          case 'markdown':
-            return React.createElement('div', { className: 'dsp-split' },
-              React.createElement('div', { className: 'dsp-split-src' },
-                React.createElement('pre', { className: 'dsp-src' }, text),
-              ),
-              React.createElement('div', { className: 'dsp-split-preview' },
-                React.createElement('div', { className: 'dsp-mdwrap' },
-                  React.createElement(MarkdownText, { text, labels: MD_LABELS }),
-                ),
-              ),
-            )
-          case 'code':
-          case 'text':
-            return React.createElement('div', { className: 'dsp-readwrap' },
-              React.createElement(ReadBlock, {
-                label: path,
-                lines,
-                totalLines: lines.length,
-                lang,
-                maxLines: READ_MAX_LINES,
-                labels: READ_LABELS,
-              }),
-            )
-          case 'pdf':
-            return React.createElement('iframe', { className: 'dsp-frame', src: fileUrl, title: name })
-          case 'font':
-            return React.createElement(FontPreview, { path, name })
-          case 'csv':
-            return React.createElement(CsvTable, { text, ext: ext })
-          default:
-            return React.createElement('div', { className: 'dsp-other' },
-              React.createElement('p', null, '该类型无法内嵌预览（' + (meta ? (meta.ext || meta.kind) : 'unknown') + '）'),
-              React.createElement('a', { className: 'dsp-download', href: fileUrl, download: name }, '下载文件'),
-            )
+        const render = RENDERERS[kind]
+        if (render === undefined) {
+          // 未在 Host EXT_KIND 声明表中的格式：仅提示暂不支持，不渲染、不下载。
+          return React.createElement('div', { className: 'dsp-other' },
+            React.createElement('p', null, '暂不支持该文件格式预览（' + (meta ? (meta.ext || meta.kind) : 'unknown') + '）'),
+          )
         }
+        return render()
       }
 
       return React.createElement('div', { className: 'dsp-detail' },
@@ -488,109 +489,20 @@ window.__ModuleLoader__.load({
     }
 
     // =========================================================================
-    // 样式（插件自有样式表，随 fiber 回收；只定义自有组件的类，不碰宿主 DOM）
+    // 样式注入：样式独立于本 bundle（lib/styles.css），由 Host 路由服务、启动时拉取。
     // =========================================================================
-    const CSS = `
-.dsp-detail { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-.dsp-bar {
-  display: flex; align-items: center; gap: 10px; flex: none;
-  padding: 8px 16px; border-bottom: 1px solid var(--dsw-alias-border-l2, #2a2c30);
-}
-.dsp-bar-title {
-  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-secondary, #e6e8eb);
-  font-family: var(--dsw-font-family-code, Consolas, 'Cascadia Mono', monospace);
-}
-.dsp-bar-size { flex: none; font-size: 11px; color: var(--dsw-alias-label-dimmed, #8a8f98); }
-.dsp-copy {
-  flex: none; border: 1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.12));
-  background: transparent; color: var(--dsw-alias-label-secondary, #666);
-  cursor: pointer; padding: 3px 12px; border-radius: 6px; font-size: 12px;
-}
-.dsp-copy:hover { background: var(--dsw-alias-interactive-bg-hover-solid, rgba(127,127,127,.16)); color: var(--dsw-alias-label-primary, #1a1a1a); }
-.dsp-detail-body { flex: 1; min-height: 0; overflow: auto; }
-/* Markdown 左右分屏 */
-.dsp-split { display: flex; flex: 1; min-height: 0; }
-.dsp-split-src {
-  flex: 0 0 44%; min-width: 0; overflow: auto;
-  border-right: 1px solid var(--dsw-alias-border-l2, #2a2c30);
-}
-.dsp-split-preview { flex: 1; min-width: 0; overflow: auto; }
-.dsp-mdwrap { padding: 18px 26px 28px; font-size: 14px; line-height: 1.7; color: var(--dsw-alias-label-primary, #f2f3f5); }
-.dsp-src {
-  margin: 0; padding: 14px 20px 20px;
-  font-family: var(--dsw-font-family-code, Consolas, 'Cascadia Mono', monospace);
-  font-size: 12.5px; line-height: 1.6; white-space: pre-wrap; word-break: break-all;
-  color: var(--dsw-alias-label-secondary, #e6e8eb);
-}
-.dsp-readwrap { padding: 8px 0; }
-.dsp-mediawrap { display: flex; align-items: center; justify-content: center; min-height: 200px; height: 100%; padding: 18px; }
-.dsp-media { display: block; max-width: 100%; max-height: 100%; margin: 0 auto; object-fit: contain; }
-.dsp-frame { width: 100%; height: 100%; border: 0; background: #fff; }
-.dsp-status { color: var(--dsw-alias-label-dimmed, #8a8f98); padding: 28px 0; text-align: center; font-size: 13px; }
-.dsp-error { color: var(--dsw-alias-state-error-primary, #f14c4c); }
-.dsp-other { text-align: center; padding: 36px 0; }
-.dsp-other p { color: var(--dsw-alias-label-tertiary, #b7bcc4); font-size: 13px; margin-bottom: 16px; }
-.dsp-download {
-  display: inline-block; padding: 8px 18px; border-radius: 8px;
-  background: var(--dsw-static-deepseek-400, #679efe); color: #fff;
-  text-decoration: none; font-size: 13px; font-weight: 500;
-}
-.dsp-download:hover { filter: brightness(1.06); }
-/* 覆盖层面板 */
-.dsp-overlay {
-  position: absolute; inset: 0; background: rgba(0, 0, 0, .4);
-  display: flex; align-items: center; justify-content: center; padding: 40px;
-}
-.dsp-overlay-panel {
-  width: min(1040px, 100%); height: min(720px, 100%);
-  background: var(--dsw-alias-bg-layer-1, #17181b);
-  border: 1px solid var(--dsw-alias-border-l2, #2a2c30);
-  border-radius: 14px; box-shadow: 0 24px 80px rgba(0, 0, 0, .55);
-  display: flex; flex-direction: column; overflow: hidden;
-}
-.dsp-overlay-head { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--dsw-alias-border-l2, #2a2c30); flex: none; }
-.dsp-overlay-title { font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-primary, #f2f3f5); flex: 1; }
-.dsp-overlay-close {
-  background: transparent; border: none; color: var(--dsw-alias-label-tertiary, #b7bcc4);
-  font-size: 18px; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 6px;
-}
-.dsp-overlay-close:hover { background: var(--dsw-alias-interactive-bg-hover-solid, rgba(127,127,127,.16)); color: var(--dsw-alias-label-primary, #f2f3f5); }
-.dsp-overlay-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-/* turnTail chips */
-.dsp-chips { display: flex; align-items: center; gap: 8px; padding: 2px 0; flex-wrap: wrap; }
-.dsp-chips-label { font-size: 12px; color: var(--dsw-alias-label-dimmed, #8a8f98); flex: none; }
-.dsp-chips-lane { display: flex; flex-wrap: wrap; gap: 6px; }
-.dsp-chip {
-  border: 1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.12)); background: transparent;
-  color: var(--dsw-alias-label-secondary, #666); cursor: pointer; padding: 3px 10px;
-  font-size: 12px; font-family: var(--dsw-font-family-code, Consolas, monospace); border-radius: 6px;
-}
-.dsp-chip:hover { background: var(--dsw-alias-interactive-bg-hover-solid, rgba(127,127,127,.16)); color: var(--dsw-alias-label-primary, #1a1a1a); }
-/* CSV 表格 */
-.dsp-csv { overflow: auto; padding: 16px 22px; }
-.dsp-table { border-collapse: collapse; font-size: 12.5px; font-family: var(--dsw-font-family-code, Consolas, 'Cascadia Mono', monospace); }
-.dsp-table th, .dsp-table td {
-  border: 1px solid var(--dsw-alias-border-l2, #2a2c30);
-  padding: 4px 10px; text-align: left; white-space: nowrap;
-}
-.dsp-table th { background: var(--dsw-alias-bg-base, #101113); color: var(--dsw-alias-label-secondary, #e6e8eb); font-weight: 600; position: sticky; top: 0; }
-.dsp-table td { color: var(--dsw-alias-label-secondary, #e6e8eb); }
-.dsp-csv-more { padding: 10px 0 0; font-size: 12px; color: var(--dsw-alias-label-dimmed, #8a8f98); }
-/* 字体预览 */
-.dsp-font { padding: 20px 26px; }
-.dsp-font-name { font-size: 12px; color: var(--dsw-alias-label-dimmed, #8a8f98); margin-bottom: 14px; font-family: var(--dsw-font-family-code, Consolas, monospace); }
-.dsp-font-specimen { line-height: 1.6; color: var(--dsw-alias-label-primary, #f2f3f5); }
-.dsp-font-big { font-size: 42px; margin-bottom: 18px; }
-.dsp-font-line { font-size: 20px; margin-bottom: 10px; }
-`
-
     function injectCss(ctx) {
       const tag = document.createElement('style')
       tag.dataset.plugin = 'dsh-peek'
-      tag.textContent = CSS
-      document.head.appendChild(tag)
-      ctx.effect(() => () => tag.remove(), 'dsh-peek: stylesheet')
+      let alive = true
+      fetch('/dsh-peek/styles.css')
+        .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text() })
+        .then((css) => { if (!alive || css.trim() === '') return; tag.textContent = css; document.head.appendChild(tag) })
+        .catch(() => { /* 样式拉取失败不阻塞预览功能 */ })
+      ctx.effect(() => () => {
+        alive = false
+        tag.remove()
+      }, 'dsh-peek: stylesheet')
     }
 
     // =========================================================================
@@ -623,7 +535,9 @@ window.__ModuleLoader__.load({
     }
 
     exports.apply = apply
+    /** 硬依赖：slots（三处 UI 席位注册）；uiConversation（注册回合产物数据定义）。 */
     exports.inject = ['slots', 'uiConversation']
+    /** 客户端插件名（与 dsh.client 花名册的包名一致）。 */
     exports.name = 'dsh-peek'
     return module.exports
   },

@@ -24,24 +24,25 @@ dsh plugin --profile web add ./cxxl-dsh-peek-0.5.3.tgz
 3. 点击「预览」chips、官方产物 chips、行内文件提及或工具卡片（read/write/edit）里的文件路径 → 页面内弹出预览面板（官方覆盖层）：标题栏显示文件名与大小，`✕` / 点击遮罩关闭。
 4. 预览以浮层呈现，不设独立「预览」视图——与官方产品语言一致。
 
-## 支持格式
+## 支持格式（声明制）
 
-| 格式 | 渲染方式 |
+支持的格式在 Host 的 `EXT_KIND` 表中**显式声明**，每个扩展名对应一种确定的预览策略；**未声明的格式一律提示「暂不支持该文件格式预览」，不渲染也不下载**（例如 `.rtf`、音频/视频、Office 文档、其它二进制）。新增格式 = Host 登记一行 + 客户端加对应渲染分支。
+
+| 格式 | 预览策略 |
 |---|---|
-| PNG / JPG / GIF / WebP / BMP / ICO / AVIF | `<img>` |
+| PNG / JPG / GIF / WebP / BMP / ICO / AVIF 等 | `<img>` |
 | SVG | `<img>`（惰性，脚本不执行，安全） |
 | HTML | `sandbox` iframe（脚本隔离，不能碰父页面） |
 | Markdown | 左右分屏：左原文 / 右官方 `MarkdownText` 预览（格式与聊天正文一致） |
 | 代码 / JSON / TXT / CSV / XML / YAML 等 | 官方 `ReadBlock`：行号 + shiki 语法高亮（IDEA 式文件视图） |
 | PDF | iframe |
-| 音频 / 视频 | `<audio>` / `<video>` |
-| 其它二进制 | 大小 + 下载按钮 |
+| 字体（woff / woff2 / ttf / otf 等） | 字符样本展示 |
 
 ## 架构
 
 | 半 | 文件 | 职责 |
 |---|---|---|
-| Host | `lib/index.js` | `node:fs` 读文件；`webServer` 注册 `meta` / `file` 两个同源路由（公开 Service 契约） |
+| Host | `lib/index.js` + `lib/mime.js` + `lib/resolve.js` | 入口注册 `meta` / `file` / `styles.css` 三个同源路由（公开 Service 契约）；类型表（MIME + EXT_KIND 格式声明）与路径解析各自独立模块 |
 | Client | `lib/client.js` | 官方 Slot 席位：`shell.overlay` 预览面板 + `conversation.chat.turnTail` 链产物 chips；自注册 `ConversationNodeDefinition`（`dsh-peek-produced`）逐回合推导产物路径；点击接管为文档化约定偏差（官方 openFile 无接管钩子） |
 
 Host↔Client 走同源 HTTP（与 `dsh-terminal` / `dsh-sqlite` / `dsh-ui-restyle` 同一套 `webServer` 机制），零运行时依赖。
@@ -54,7 +55,7 @@ Host↔Client 走同源 HTTP（与 `dsh-terminal` / `dsh-sqlite` / `dsh-ui-resty
 ## 权限与副作用
 
 - **文件读取**：通过 `node:fs` 读取 DSH 进程可读的任意文件路径（等价于 dsh-terminal 在本地起 shell 的权限面）；路由仅注册在 loopback 同源地址。
-- **网络**：仅注册同源路由 `/dsh-peek/meta` 与 `/dsh-peek/file`，不发起任何出站请求。
+- **网络**：仅注册同源路由 `/dsh-peek/meta`、`/dsh-peek/file` 与 `/dsh-peek/styles.css`，不发起任何出站请求。
 - **点击接管（约定偏差）**：官方产物 chips、行内文件提及与工具卡片（read/write/edit）路径的点击被接管为内嵌预览（官方 openFile 无接管钩子；data-* 层经调研跨 20 个发布版零破坏）。插件停用时自动注销路由、样式与监听。
 - 插件停用时自动注销路由与样式、关闭面板。
 

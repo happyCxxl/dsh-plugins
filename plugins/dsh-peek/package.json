@@ -1,6 +1,6 @@
 {
   "name": "@cxxl/dsh-peek",
-  "version": "0.5.3",
+  "version": "0.5.6",
   "publishConfig": {
     "access": "public"
   },
@@ -15,7 +15,10 @@
   },
   "files": [
     "lib/index.js",
+    "lib/mime.js",
+    "lib/resolve.js",
     "lib/client.js",
+    "lib/styles.css",
     "cordis.patch.yml",
     "README.md",
     "LICENSE"
