@@ -316,24 +316,31 @@ window.__ModuleLoader__.load({
     }
 
     // ========================================================================
-    // 会话注册表（模块级）：切 tab 不销毁 PTY / 屏幕，支持多开
+    // 会话注册表：按 DSH 会话（sessionId）隔离——每个 DSH 会话拥有自己的终端列表，
+    // 终端在各自会话的工作区目录启动；切 tab / 切会话不销毁 PTY / 屏幕。
     // ========================================================================
-    const sessions = new Map() // key -> record
-    let nextKey = 1
-    let activeKey = null
-    let userExited = false // 用户已全部退出：切回 tab 不再自动重开
+    const sessionMaps = new Map() // sessionId -> { map, nextKey, activeKey, userExited }
+
+    function forSession(sessionId) {
+      let st = sessionMaps.get(sessionId)
+      if (st === undefined) {
+        st = { map: new Map(), nextKey: 1, activeKey: null, userExited: false }
+        sessionMaps.set(sessionId, st)
+      }
+      return st
+    }
 
     function newRecord(key) {
       return { key, hostId: null, seq: 0, emu: null, info: { pid: null, cwd: '', shell: '', error: '', exitCode: null }, status: 'idle' }
     }
-    function ensureSessions() {
-      if (sessions.size === 0) {
-        if (userExited) { activeKey = null; return } // 用户已全部退出，保持空态
-        const key = 's' + (nextKey++)
-        sessions.set(key, newRecord(key))
-        activeKey = key
-      } else if (activeKey === null || !sessions.has(activeKey)) {
-        activeKey = sessions.keys().next().value
+    function ensureSessions(st) {
+      if (st.map.size === 0) {
+        if (st.userExited) { st.activeKey = null; return } // 用户已全部退出，保持空态
+        const key = 's' + (st.nextKey++)
+        st.map.set(key, newRecord(key))
+        st.activeKey = key
+      } else if (st.activeKey === null || !st.map.has(st.activeKey)) {
+        st.activeKey = st.map.keys().next().value
       }
     }
 
@@ -342,6 +349,7 @@ window.__ModuleLoader__.load({
 
     function TerminalView(props) {
       const sessionId = props.sessionId
+      const st = forSession(sessionId)
       const wsCwd = props.useWorkspaces((ws) => resolveCwd(sessionId, ws))
       const [tick, setTick] = React.useState(0)
       const screenRef = React.useRef(null)
@@ -353,7 +361,7 @@ window.__ModuleLoader__.load({
       const bump = () => setTick((t) => t + 1)
 
       async function spawn(key) {
-        const s = sessions.get(key)
+        const s = st.map.get(key)
         if (!s || s.hostId || s.status === 'spawning') return
         s.status = 'spawning'
         bump()
@@ -373,7 +381,7 @@ window.__ModuleLoader__.load({
         } catch { /* 用默认值 */ }
         try {
           const res = await post('/dsh-terminal-api/spawn', { cols, rows, ...(wsCwd ? { cwd: wsCwd } : {}) })
-          const s2 = sessions.get(key)
+          const s2 = st.map.get(key)
           if (!s2) return
           if (!res || !res.ok) {
             s2.status = 'error'
@@ -386,9 +394,9 @@ window.__ModuleLoader__.load({
           s2.info = { pid: res.pid, cwd: res.cwd || '', shell: res.shell || '', error: '', exitCode: null }
           s2.status = 'running'
           bump()
-          if (key === activeKey) focus()
+          if (key === st.activeKey) focus()
         } catch (err) {
-          const s2 = sessions.get(key)
+          const s2 = st.map.get(key)
           if (!s2) return
           s2.status = 'error'
           s2.info.error = (err && err.message) || String(err)
@@ -397,52 +405,52 @@ window.__ModuleLoader__.load({
       }
 
       function addSession() {
-        userExited = false
-        const key = 's' + (nextKey++)
-        sessions.set(key, newRecord(key))
-        activeKey = key
+        st.userExited = false
+        const key = 's' + (st.nextKey++)
+        st.map.set(key, newRecord(key))
+        st.activeKey = key
         bump()
         spawn(key)
         focus()
       }
       function switchSession(key) {
-        if (key === activeKey) return
-        activeKey = key
+        if (key === st.activeKey) return
+        st.activeKey = key
         bump()
-        const s = sessions.get(key)
+        const s = st.map.get(key)
         if (s && !s.hostId && s.status !== 'spawning' && s.status !== 'error') spawn(key)
         focus()
       }
       function closeSession(key) {
-        const s = sessions.get(key)
+        const s = st.map.get(key)
         if (s && s.hostId) post('/dsh-terminal-api/close', { id: s.hostId }).catch(() => {})
-        sessions.delete(key)
-        if (activeKey === key) {
-          const remaining = [...sessions.keys()]
+        st.map.delete(key)
+        if (st.activeKey === key) {
+          const remaining = [...st.map.keys()]
           if (remaining.length > 0) {
-            activeKey = remaining[remaining.length - 1]
+            st.activeKey = remaining[remaining.length - 1]
           } else {
-            activeKey = null
-            userExited = true // 关掉最后一个 → 空态（tab 常驻，视图内显示「启动终端」）
+            st.activeKey = null
+            st.userExited = true // 关掉最后一个 → 空态（tab 常驻，视图内显示「启动终端」）
           }
         }
         bump()
-        if (activeKey) focus()
+        if (st.activeKey) focus()
       }
       function exitAll() {
-        for (const s of sessions.values()) {
+        for (const s of st.map.values()) {
           if (s.hostId) post('/dsh-terminal-api/close', { id: s.hostId }).catch(() => {})
         }
-        sessions.clear()
-        activeKey = null
-        userExited = true
+        st.map.clear()
+        st.activeKey = null
+        st.userExited = true
         bump()
       }
 
       React.useEffect(() => {
-        ensureSessions()
-        const active = sessions.get(activeKey)
-        if (active && !active.hostId && active.status !== 'spawning' && active.status !== 'error') spawn(activeKey)
+        ensureSessions(st)
+        const active = st.map.get(st.activeKey)
+        if (active && !active.hostId && active.status !== 'spawning' && active.status !== 'error') spawn(st.activeKey)
         bump()
         // 进入终端 tab 后自动聚焦，否则键盘输入没有落点
         focus()
@@ -450,8 +458,8 @@ window.__ModuleLoader__.load({
 
         const pollId = setInterval(async () => {
           if (busyRef.current) return
-          const key = activeKey
-          const s = sessions.get(key)
+          const key = st.activeKey
+          const s = st.map.get(key)
           if (!s || !s.hostId || !s.emu) return
           busyRef.current = true
           try {
@@ -471,14 +479,14 @@ window.__ModuleLoader__.load({
         }, 40)
 
         return () => { clearInterval(pollId); clearTimeout(focusTimer) } // 切走 tab 只停轮询，不关 PTY
-      }, [])
+      }, [sessionId])
 
       React.useEffect(() => {
         if (screenRef.current) screenRef.current.scrollTop = screenRef.current.scrollHeight
       }, [tick])
 
-      const keys = [...sessions.keys()]
-      const active = activeKey ? sessions.get(activeKey) : null
+      const keys = [...st.map.keys()]
+      const active = st.activeKey ? st.map.get(st.activeKey) : null
       const emu = active ? active.emu : null
       const info = active ? active.info : { pid: null, cwd: '', shell: '', error: '', exitCode: null }
       const status = active ? active.status : 'idle'
@@ -493,8 +501,8 @@ window.__ModuleLoader__.load({
         }
       }
       function send(data) {
-        const key = activeKey
-        const s = sessions.get(key)
+        const key = st.activeKey
+        const s = st.map.get(key)
         if (!s || !s.hostId) return
         post('/dsh-terminal-api/write', { id: s.hostId, data }).catch(() => {})
       }
@@ -536,11 +544,11 @@ window.__ModuleLoader__.load({
       return React.createElement('div', { className: 'dwt', 'data-dwt-terminal': '', onMouseDown: focus },
         React.createElement('div', { className: 'dwt-tabs' },
           keys.map((key) => {
-            const s = sessions.get(key)
+            const s = st.map.get(key)
             const n = key.slice(1)
             return React.createElement('div', {
               key,
-              className: 'dwt-sess' + (key === activeKey ? ' dwt-sess-active' : ''),
+              className: 'dwt-sess' + (key === st.activeKey ? ' dwt-sess-active' : ''),
               onClick: () => switchSession(key),
             },
               React.createElement('span', { className: 'dwt-sess-label' }, 'pwsh ' + n),
@@ -622,12 +630,12 @@ window.__ModuleLoader__.load({
     function apply(ctx) {
       injectCss(ctx)
       ctx.effect(() => () => {
-        for (const s of sessions.values()) {
-          if (s.hostId) post('/dsh-terminal-api/close', { id: s.hostId }).catch(() => {})
+        for (const st of sessionMaps.values()) {
+          for (const s of st.map.values()) {
+            if (s.hostId) post('/dsh-terminal-api/close', { id: s.hostId }).catch(() => {})
+          }
         }
-        sessions.clear()
-        activeKey = null
-        userExited = false
+        sessionMaps.clear()
       }, 'dsh-terminal: close sessions on unload')
 
       // 终端视图：官方 slots.inject 模式常驻注册（自动等待槽位声明、随 fiber 回收）。
