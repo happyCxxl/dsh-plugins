@@ -4,7 +4,7 @@
 // 注册 HTTP 路由对外提供（与 dsh-sqlite 面板同一套 webServer 机制）。
 //
 // 依赖策略：只用 Node 内置模块，不 import 任何 harness 包 —— 避免进程内出现
-// 第二份 cordis / dsh-tools 导致 Symbol 分裂（见仓库 dev-notes B5）。
+// 第二份 cordis / dsh-tools 导致 Symbol 分裂。
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
@@ -12,7 +12,7 @@ import { join } from 'node:path'
 export const name = 'dsh-ui-restyle'
 
 // webServer 是硬依赖：没有它就发不出字体。声明为 inject（而非 ctx.get 静默跳过），
-// 是为了让挂载失败可见，而不是插件悄悄失效（dev-notes 里记过这个坑）。
+// 是为了让挂载失败可见，而不是插件悄悄失效。
 export const inject = ['webServer']
 
 /** 字体目录：本文件在 lib/ 下，字体在包根的 fonts/。 */

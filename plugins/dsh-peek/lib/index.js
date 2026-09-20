@@ -7,7 +7,7 @@
 // workspace 根）按「每个 workspace 根 + 进程 cwd」做候选，取第一个真实存在的文件。
 //
 // 依赖策略：只用 Node 内置模块 + ctx 服务，不 import 任何 harness 包 ——
-// 避免进程内出现第二份 cordis / dsh-tools 导致 Symbol 分裂（见仓库 dev-notes B5）。
+// 避免进程内出现第二份 cordis / dsh-tools 导致 Symbol 分裂。
 
 import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'

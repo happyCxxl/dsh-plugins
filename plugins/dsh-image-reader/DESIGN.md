@@ -197,5 +197,5 @@ plugins/dsh-image-reader/
 | 5 | 只对纯文本模型转译 | 视觉模型原生看图，避免降质 |
 | 6 | 失败 fail open（占位文本） | 用户消息优先，读图是增强不是前置条件 |
 | 7 | 只 insert、不改核心行 | 卸载即恢复 |
-| 8 | 全部可调项进 `Config` | dev-notes「不要硬编码可调项」 |
+| 8 | 全部可调项进 `Config` | 可调项进 Config，不硬编码 |
 | 9 | peerDependencies 只留 `@deepseek-ai/schemastery` | 只真正 import 它；其余服务经 `ctx` 运行时访问 |

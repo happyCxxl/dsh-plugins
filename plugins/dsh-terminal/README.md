@@ -9,7 +9,7 @@ dsh plugin --profile web add @cxxl/dsh-terminal
 # 装完重启一次（bundle 层只在启动时读取）
 ```
 
-本地开发用 tarball 通道（不要 add 本地目录：junction 悬空陷阱，见仓库 dev-notes D15）：
+本地开发用 tarball 通道（不要 add 本地目录：junction 悬空陷阱）：
 
 ```powershell
 cd plugins/dsh-terminal

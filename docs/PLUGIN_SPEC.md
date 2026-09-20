@@ -134,7 +134,6 @@ plugins/<npm包名>/
 | 本文件 | **契约（应然）**，改动契约时同一 commit 更新 |
 | `docs/AUDIT.md` | **现状偏差（实然）**与整改路线；修完一条勾一条并记 commit |
 | `README.md` | 仓库总览（含目录结构表） |
-| `dsh-plugin-dev-notes.md` | 社区踩坑证据库 |
 
 - 改代码触及契约 → 先更新本文件；修完 AUDIT 条目 → 勾选该条。
 - 目录结构变更 → 同步更新 `README.md` 的「目录结构」表。

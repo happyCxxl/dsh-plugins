@@ -17,7 +17,7 @@ dsh plugin --profile web add @cxxl/dsh-image-reader
 # 装完重启一次（bundle 层只在启动时读取）
 ```
 
-本地开发推荐 tarball 通道（见仓库 dev-notes D15，避免 junction 悬空）：
+本地开发推荐 tarball 通道（避免 junction 悬空）：
 
 ```powershell
 cd plugins/dsh-image-reader

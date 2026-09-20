@@ -74,7 +74,7 @@ DSH 官方存储栈（`@deepseek-ai/dsh-storage-sqlite`）是给 DSH 内部服�
 
 | # | 注意什么 | 怎么解决 | 本插件落法 |
 |---|---|---|---|
-| 1 | 描述是模型唯一的使用手册——它只读 name/description/parameters，看不到你的代码 | 描述写清五要素：做什么、何时用、何时**别**用、副作用、防错提示 | sqlite_exec 描述含危险语句规则与 confirm 用法；query 描述写"只读，勿用于修改"；**所有描述禁用 `{{...}}`**（会破坏 code-mode 组装，见 `dsh-plugin-dev-notes.md` C10） |
+| 1 | 描述是模型唯一的使用手册——它只读 name/description/parameters，看不到你的代码 | 描述写清五要素：做什么、何时用、何时**别**用、副作用、防错提示 | sqlite_exec 描述含危险语句规则与 confirm 用法；query 描述写"只读，勿用于修改"；**所有描述禁用 `{{...}}`**（会破坏 code-mode 组装） |
 | 2 | 命名可预测 | 前缀_动作模式，动词清晰、无缩写歧义 | `sqlite_query / exec / tables / export / import`，符合生态惯例 |
 | 3 | 参数过多/过宽 | 必填最小化（仅 `sql`）；默认值友好；用 JSON Schema 收窄取值而非自由文本 | db 名 `pattern: [a-zA-Z0-9_-]{1,64}`；maxRows `maximum: 500` |
 | 4 | schema 即契约 | 发布后改参数名/语义 = 破坏性变更（模型已按旧习惯调用）；加可选参数安全，改语义发大版本 | 本文档定稿 = 接口契约冻结 |
@@ -108,7 +108,7 @@ DSH 官方存储栈（`@deepseek-ai/dsh-storage-sqlite`）是给 DSH 内部服�
 
 - 位置：`~/.dsh/data/agent.db`（默认库）；命名库 `~/.dsh/data/<name>.db`
 - 库名安全：`name` 仅允许 `[a-zA-Z0-9_-]`，防路径穿越
-- 路径解析：用 `os.homedir()` 解析 `~/.dsh`，防中文用户名/空格路径（Windows 重灾区，见 `dsh-plugin-dev-notes.md` D14）
+- 路径解析：用 `os.homedir()` 解析 `~/.dsh`，防中文用户名/空格路径（Windows 重灾区）
 - 表的位置：表是 .db 文件内部的逻辑结构，不占独立文件；命名库 = 独立的 .db 文件（隔离用途）
 - 为什么放 `~/.dsh/data/`：跨会话固定可达；不污染 git/工作区；插件升级重装不丢数据；避开 DSH 自有的 `storages/` 目录边界
 - 并发：WAL 模式 + busy_timeout 3000ms，多会话同时读写同一库
@@ -138,7 +138,7 @@ plugins/dsh-sqlite/
 └── README.md          # 安装/使用说明
 ```
 
-- 依赖策略：cordis 等 harness 自带包声明为 **peerDependencies**，防止进程内双副本 Symbol 分裂崩溃（见 `dsh-plugin-dev-notes.md` B5）
+- 依赖策略：cordis 等 harness 自带包声明为 **peerDependencies**，防止进程内双副本 Symbol 分裂崩溃
 
 ## 8. 装载与调用机制
 
@@ -164,7 +164,7 @@ plugins/dsh-sqlite/
 
 1. 按第 7 节结构实现
 2. 本地安装：`dsh plugin --profile web add <本地目录>`，重启后验证
-3. 测试点：五工具正常注册、危险语句拦截、语句黑白名单拦截、并发写冲突、部分导出/导入、导出→清库→导入往返一致、干净 DSH_HOME profile 冒烟（安装→启动→卸载，见 `dsh-plugin-dev-notes.md` D13）
+3. 测试点：五工具正常注册、危险语句拦截、语句黑白名单拦截、并发写冲突、部分导出/导入、导出→清库→导入往返一致、干净 DSH_HOME profile 冒烟（安装→启动→卸载）
 4. 发布：在 `plugins/dsh-sqlite` 目录执行 `npm publish --access public`
 
 ## 12. 决策记录
@@ -176,7 +176,7 @@ plugins/dsh-sqlite/
 - 写性能防线：单次 SQL ≤ 64KB、分批写入提示、busy_timeout 3000ms
 - 跨机器同步：**入 v1**；方案 = 导出 SQL 文本（本地默认路径 + `to` 指向仓库）；export 支持 `tables` 表粒度；导入 = 替换 dump 中的表、其余保留；**不做自动导出**（全手动：用户决定 / 用户让模型执行 / 模型按场景提议）
 - 工具设计原则：成文于第 5 节——描述五要素、错误信息可行动、schema 即契约、5 工具上限、注册随 Fiber 回收
-- 调研修正（见 `dsh-plugin-dev-notes.md`）：依赖声明 peerDependencies（防双副本 Symbol 分裂）；工具描述禁 `{{...}}`；路径解析用 os.homedir()（防中文/空格）；发布前干净 profile 冒烟测试
+- 调研修正：依赖声明 peerDependencies（防双副本 Symbol 分裂）；工具描述禁 `{{...}}`；路径解析用 os.homedir()（防中文/空格）；发布前干净 profile 冒烟测试
 - 引擎：node:sqlite（实验性，隔离在 engine.js，可随时整体替换）
 - 提交邮箱：`cl152556563887@gmail.com`（本仓库级 git 身份，不影响公司 GitLab 配置）
 

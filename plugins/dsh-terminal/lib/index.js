@@ -2,7 +2,7 @@
 // 暴露 spawn / write / read / close 四个同源 API 给浏览器端。
 //
 // 依赖策略：只用 Node 内置能力 + ctx 服务，不 import 任何 harness 包 ——
-// 避免进程内出现第二份 cordis / dsh-tools 造成 Symbol 分裂（见仓库 dev-notes B5）。
+// 避免进程内出现第二份 cordis / dsh-tools 造成 Symbol 分裂。
 
 import { existsSync } from 'node:fs'
 
