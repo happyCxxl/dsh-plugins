@@ -2,10 +2,12 @@
 
 本插件版本记录（语义化版本）。
 
-## 0.5.0 — 2026-09-20
+## 0.5.3 — 2026-09-20
 
-- 官方化重写：预览视图走 `conversation.view`、预览面板走 `shell.overlay`、每回合产物 chips 走 `conversation.chat.turnTail` 链（select 认领）、产物路径由自注册 `ConversationNodeDefinition`（`dsh-peek-produced`）逐回合推导；删除全局点击拦截、DOM 扫描、按文案切 tab、隐藏输入框等全部非契约手段。
-- 行为变化：官方产物 chips 与行内文件提及点击回落为系统打开文件；内嵌预览入口变为本插件自有的「预览」chips 与「预览」视图。
+- 代码 / 文本文件改用官方 `ReadBlock` 渲染：行号 + shiki 语法高亮（IDEA 式文件视图，超长文件自动收起中间行）；Markdown 改为**左右分屏**（左原文 / 右官方 MarkdownText 预览）；复制走官方 `writeClipboard`。
+- 预览面板改版（0.5.2 未发布，并入本版）：面板加大、深色底、头部信息行；Markdown 官方渲染格式保真。
+- 官方化重写（0.5.0/0.5.1 未发布，并入本版）：预览面板走 `shell.overlay`（预览即浮层，不设独立「预览」视图）；每回合产物 chips 走 `conversation.chat.turnTail` 链；产物路径由自注册 `ConversationNodeDefinition`（`dsh-peek-produced`）逐回合推导。
+- 恢复点击接管（文档化约定偏差）：官方产物 chips、行内文件提及、工具卡片（read/write/edit）路径点击 → 内嵌预览弹窗。
 
 ## 0.4.0 — 2026-09-18
 

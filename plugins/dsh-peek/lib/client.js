@@ -5,26 +5,42 @@ window.__ModuleLoader__.load({
     var exports = module.exports
     Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' })
     const React = require('react')
-    const { CodeBlock } = require('@deepseek-ai/dsh-client-ui-primitives')
+    const { MarkdownText, ReadBlock, writeClipboard } = require('@deepseek-ai/dsh-client-ui-primitives')
 
     // =========================================================================
-    // dsh-peek 客户端（官方化重写，0.5.0）
+    // dsh-peek 客户端（0.5.3）
     //
-    // 全部 UI 走官方 Slot 体系，不再猜 DOM：
-    //   - 「预览」视图 tab：conversation.view（官方视图席位）
-    //   - 预览面板：shell.overlay（官方覆盖层席位）
+    // 官方 Slot 体系 + 一处文档化约定偏差：
+    //   - 预览面板：shell.overlay（官方覆盖层席位）——预览即浮层，与官方产品语言一致，
+    //     不设独立「预览」视图
     //   - 每回合产物 chips：conversation.chat.turnTail 链（select 认领，官方链席位）
     //   - 产物路径推导：自注册 ConversationNodeDefinition（kind: dsh-peek-produced），
     //     逐回合累积 write/edit/str_replace_editor 成功产物，与 ui-deliverables 同款机制
+    //   - 代码/文本：官方 ReadBlock（行号 + shiki 语法高亮，IDEA 式文件视图）
+    //   - Markdown：左右分屏（左原文 / 右官方 MarkdownText 预览）
+    //   - 约定偏差：官方 openFile 无接管钩子——以捕获阶段点击监听把官方产物 chips、
+    //     行内文件提及与工具卡片（read/write/edit）路径改为内嵌预览（data-* 层经调研
+    //     跨 20 个发布版零破坏）
     // Host 同源路由 /dsh-peek/meta|file（webServer 公开契约，见 docs/PLUGIN_SPEC.md §6）。
     // =========================================================================
 
     const META_URL = '/dsh-peek/meta'
     const FILE_URL = '/dsh-peek/file'
     const TEXT_KINDS = new Set(['markdown', 'code', 'text', 'html', 'csv'])
+    const MD_LABELS = { code: { copyLabel: '复制', copiedLabel: '已复制' }, footnotes: '脚注' }
+    const READ_LABELS = {
+      window: (shown, total) => '显示 ' + shown + ' / ' + total + ' 行',
+      copy: '复制',
+      copied: '已复制',
+      collapseAria: '收起中间行',
+      expandAria: (hidden) => '展开中间 ' + hidden + ' 行',
+      collapse: '收起中间',
+      expand: (hidden) => '展开中间 ' + hidden + ' 行',
+    }
+    const READ_MAX_LINES = 20000
 
     // =========================================================================
-    // 预览状态（factory 作用域）：覆盖层面板与预览视图共用。
+    // 预览状态（factory 作用域）：覆盖层面板读取。
     // =========================================================================
     const previewStore = {
       path: null,
@@ -38,6 +54,60 @@ window.__ModuleLoader__.load({
       const [path, setPath] = React.useState(previewStore.get())
       React.useEffect(() => previewStore.subscribe(() => setPath(previewStore.get())), [])
       return path
+    }
+
+    // =========================================================================
+    // 点击接管（约定偏差：官方 openFile 无接管钩子）
+    // 目标：官方产物 chips / 行内文件提及（title 属性）、工具卡片（read/write/edit）
+    // 文件路径。命中后改为内嵌预览弹窗，不再触发系统打开文件。
+    // =========================================================================
+    function looksLikePath(s) {
+      if (typeof s !== 'string' || s.trim() === '') return false
+      if (/[\\/]/.test(s)) return true
+      return /\.[A-Za-z0-9]{1,6}$/.test(s.trim())
+    }
+    function findFileTitle(target) {
+      let el = target
+      while (el && el !== document.body) {
+        if (typeof el.getAttribute === 'function') {
+          const title = el.getAttribute('title')
+          if (looksLikePath(title)) return { el, path: title }
+        }
+        el = el.parentElement
+      }
+      return null
+    }
+    function findToolFileLink(target) {
+      let el = target
+      while (el && el !== document.body) {
+        if (el.tagName === 'BUTTON' && typeof el.closest === 'function') {
+          const row = el.closest('[data-tool]')
+          if (row !== null) {
+            const tool = row.getAttribute('data-tool')
+            if (tool === 'read' || tool === 'write' || tool === 'edit') {
+              const text = (el.textContent || '').trim()
+              if (looksLikePath(text)) return { el, path: text }
+            }
+          }
+        }
+        el = el.parentElement
+      }
+      return null
+    }
+    function handleDocumentClick(e) {
+      const hit = findFileTitle(e.target)
+      if (hit !== null && hit.el.closest('[data-chat-flow-kind], [data-produced-files-row]')) {
+        e.preventDefault()
+        e.stopPropagation()
+        previewStore.set(hit.path)
+        return
+      }
+      const link = findToolFileLink(e.target)
+      if (link !== null) {
+        e.preventDefault()
+        e.stopPropagation()
+        previewStore.set(link.path)
+      }
     }
 
     // =========================================================================
@@ -173,113 +243,6 @@ window.__ModuleLoader__.load({
     }
 
     // =========================================================================
-    // 轻量 Markdown 渲染（精简版）
-    // =========================================================================
-    function escapeHtml(s) {
-      return String(s)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-    }
-    function safeUrl(u) {
-      return (/^(https?:|mailto:|#|\/|\.\/|\.\.\/)/i.test(u) ? u : '#')
-    }
-    function renderMarkdown(src) {
-      const lines = String(src ?? '').replace(/\r\n?/g, '\n').split('\n')
-      const out = []
-      let i = 0
-      let inCode = false
-      let codeBuf = []
-      let codeLang = ''
-      let listType = null
-      let listBuf = []
-
-      const flushList = () => {
-        if (listType === null) return
-        out.push('<' + listType + '>' + listBuf.join('') + '</' + listType + '>')
-        listType = null
-        listBuf = []
-      }
-      const inline = (text) => {
-        let s = escapeHtml(text)
-        s = s.replace(/`([^`]+)`/g, '<code>$1</code>')
-        s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (m, alt, url) => '<img alt="' + alt + '" src="' + safeUrl(url) + '">')
-        s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, label, url) => '<a href="' + safeUrl(url) + '" target="_blank" rel="noopener">' + label + '</a>')
-        s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-        s = s.replace(/__([^_]+)__/g, '<strong>$1</strong>')
-        s = s.replace(/\*([^*]+)\*/g, '<em>$1</em>')
-        s = s.replace(/(^|[^_])_([^_]+)_(?![_])/g, '$1<em>$2</em>')
-        return s
-      }
-
-      while (i < lines.length) {
-        const line = lines[i]
-        if (inCode) {
-          if (/^\s*```/.test(line)) {
-            out.push('<pre><code' + (codeLang ? ' class="lang-' + escapeHtml(codeLang) + '"' : '') + '>' + escapeHtml(codeBuf.join('\n')) + '</code></pre>')
-            inCode = false
-            codeBuf = []
-            codeLang = ''
-          } else {
-            codeBuf.push(line)
-          }
-          i += 1
-          continue
-        }
-        if (/^\s*```/.test(line)) {
-          flushList()
-          const m = line.match(/^\s*```(.*)$/)
-          codeLang = (m ? m[1] : '').trim()
-          inCode = true
-          codeBuf = []
-          i += 1
-          continue
-        }
-        const h = line.match(/^(#{1,6})\s+(.*)$/)
-        if (h) {
-          flushList()
-          out.push('<h' + h[1].length + '>' + inline(h[2]) + '</h' + h[1].length + '>')
-          i += 1
-          continue
-        }
-        if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
-          flushList()
-          out.push('<hr>')
-          i += 1
-          continue
-        }
-        if (/^\s*>\s?/.test(line)) {
-          flushList()
-          out.push('<blockquote>' + inline(line.replace(/^\s*>\s?/, '')) + '</blockquote>')
-          i += 1
-          continue
-        }
-        const ul = line.match(/^\s*[-*+]\s+(.*)$/)
-        const ol = line.match(/^\s*\d+[.)]\s+(.*)$/)
-        if (ul || ol) {
-          const type = ul ? 'ul' : 'ol'
-          const content = inline(ul ? ul[1] : ol[1])
-          if (listType !== type) { flushList(); listType = type }
-          listBuf.push('<li>' + content + '</li>')
-          i += 1
-          continue
-        }
-        if (/^\s*$/.test(line)) {
-          flushList()
-          i += 1
-          continue
-        }
-        flushList()
-        out.push('<p>' + inline(line) + '</p>')
-        i += 1
-      }
-      if (inCode) out.push('<pre><code>' + escapeHtml(codeBuf.join('\n')) + '</code></pre>')
-      flushList()
-      return out.join('')
-    }
-
-    // =========================================================================
     // CSV / TSV → 表格
     // =========================================================================
     function parseCsv(text, delimiter) {
@@ -349,6 +312,8 @@ window.__ModuleLoader__.load({
 
     // =========================================================================
     // 预览体：拉取 meta + 内容，按 kind 渲染。
+    //   代码/文本 → 官方 ReadBlock（行号 + shiki 高亮，IDEA 式）；
+    //   Markdown → 左右分屏：左原文 / 右官方 MarkdownText 预览。
     // =========================================================================
     function PreviewBody(props) {
       const path = props.path
@@ -356,6 +321,7 @@ window.__ModuleLoader__.load({
       const [meta, setMeta] = React.useState(null)
       const [text, setText] = React.useState('')
       const [error, setError] = React.useState('')
+      const [copied, setCopied] = React.useState(false)
 
       React.useEffect(() => {
         let alive = true
@@ -363,6 +329,7 @@ window.__ModuleLoader__.load({
         setError('')
         setMeta(null)
         setText('')
+        setCopied(false)
         ;(async () => {
           try {
             const mr = await fetch(META_URL + '?path=' + encodeURIComponent(path)).then((r) => r.json())
@@ -394,11 +361,30 @@ window.__ModuleLoader__.load({
 
       const fileUrl = FILE_URL + '?path=' + encodeURIComponent(path)
       const name = meta ? meta.name : basename(path)
+      const kind = meta ? meta.kind : 'other'
+      const ext = meta && meta.ext ? meta.ext : ''
+      const lang = ext.replace(/^\./, '')
+      const isMarkdown = kind === 'markdown'
+      const canCopy = phase === 'ready' && text !== '' && isMarkdown
+      const lines = React.useMemo(() => {
+        if (text === '') return []
+        const raw = text.replace(/\r\n/g, '\n')
+        const parts = raw.split('\n')
+        if (parts.length > 1 && parts[parts.length - 1] === '') parts.pop()
+        return parts.map((line, i) => ({ number: i + 1, text: line }))
+      }, [text])
+
+      function doCopy() {
+        if (!canCopy) return
+        writeClipboard(text).then(() => {
+          setCopied(true)
+          setTimeout(() => setCopied(false), 1500)
+        }).catch(() => {})
+      }
 
       function renderBody() {
         if (phase === 'loading') return React.createElement('div', { className: 'dsp-status' }, '加载中…')
         if (phase === 'error') return React.createElement('div', { className: 'dsp-status dsp-error' }, error)
-        const kind = meta ? meta.kind : 'other'
         switch (kind) {
           case 'image':
           case 'svg':
@@ -408,22 +394,34 @@ window.__ModuleLoader__.load({
           case 'html':
             return React.createElement('iframe', { className: 'dsp-frame', sandbox: 'allow-scripts', srcDoc: text, title: name })
           case 'markdown':
-            return React.createElement('div', { className: 'dsp-md', dangerouslySetInnerHTML: { __html: renderMarkdown(text) } })
+            return React.createElement('div', { className: 'dsp-split' },
+              React.createElement('div', { className: 'dsp-split-src' },
+                React.createElement('pre', { className: 'dsp-src' }, text),
+              ),
+              React.createElement('div', { className: 'dsp-split-preview' },
+                React.createElement('div', { className: 'dsp-mdwrap' },
+                  React.createElement(MarkdownText, { text, labels: MD_LABELS }),
+                ),
+              ),
+            )
           case 'code':
-            return React.createElement(CodeBlock, {
-              code: text,
-              lang: meta && meta.ext ? meta.ext.slice(1) : '',
-              copyLabel: '复制',
-              copiedLabel: '已复制',
-            })
           case 'text':
-            return React.createElement('pre', { className: 'dsp-code' }, text)
+            return React.createElement('div', { className: 'dsp-readwrap' },
+              React.createElement(ReadBlock, {
+                label: path,
+                lines,
+                totalLines: lines.length,
+                lang,
+                maxLines: READ_MAX_LINES,
+                labels: READ_LABELS,
+              }),
+            )
           case 'pdf':
             return React.createElement('iframe', { className: 'dsp-frame', src: fileUrl, title: name })
           case 'font':
             return React.createElement(FontPreview, { path, name })
           case 'csv':
-            return React.createElement(CsvTable, { text, ext: meta ? meta.ext : '' })
+            return React.createElement(CsvTable, { text, ext: ext })
           default:
             return React.createElement('div', { className: 'dsp-other' },
               React.createElement('p', null, '该类型无法内嵌预览（' + (meta ? (meta.ext || meta.kind) : 'unknown') + '）'),
@@ -433,9 +431,12 @@ window.__ModuleLoader__.load({
       }
 
       return React.createElement('div', { className: 'dsp-detail' },
-        React.createElement('div', { className: 'dsp-detail-head' },
-          React.createElement('span', { className: 'dsp-detail-title', title: path }, name),
-          meta && meta.size !== undefined && React.createElement('span', { className: 'dsp-detail-size' }, humanSize(meta.size)),
+        React.createElement('div', { className: 'dsp-bar' },
+          React.createElement('span', { className: 'dsp-bar-title', title: path }, name),
+          meta && meta.size !== undefined && React.createElement('span', { className: 'dsp-bar-size' }, humanSize(meta.size)),
+          canCopy && React.createElement('button', {
+            className: 'dsp-copy', type: 'button', onClick: doCopy,
+          }, copied ? '已复制' : '复制'),
         ),
         React.createElement('div', { className: 'dsp-detail-body' }, renderBody()),
       )
@@ -467,21 +468,6 @@ window.__ModuleLoader__.load({
     }
 
     // =========================================================================
-    // 「预览」视图（conversation.view 席位）：显示最近一次预览的文件。
-    // =========================================================================
-    function PreviewView() {
-      const path = usePreviewPath()
-      if (path === null) {
-        return React.createElement('div', { className: 'dsp-view' },
-          React.createElement('div', { className: 'dsp-empty' }, '点击对话里每轮末尾的「预览」chips，即可在这里查看文件'),
-        )
-      }
-      return React.createElement('div', { className: 'dsp-view' },
-        React.createElement(PreviewBody, { path }),
-      )
-    }
-
-    // =========================================================================
     // turnTail 链：本回合产物 chips。点击 → 打开覆盖层预览。
     // =========================================================================
     function PeekChips(props) {
@@ -505,40 +491,42 @@ window.__ModuleLoader__.load({
     // 样式（插件自有样式表，随 fiber 回收；只定义自有组件的类，不碰宿主 DOM）
     // =========================================================================
     const CSS = `
-.dsp-view { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-.dsp-empty { padding: 28px 16px; text-align: center; font-size: 13px; color: var(--dsw-alias-label-dimmed, #8a8f98); }
 .dsp-detail { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-.dsp-detail-head {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 14px; border-bottom: 1px solid var(--dsw-alias-border-l2, #2a2c30); flex: none;
+.dsp-bar {
+  display: flex; align-items: center; gap: 10px; flex: none;
+  padding: 8px 16px; border-bottom: 1px solid var(--dsw-alias-border-l2, #2a2c30);
 }
-.dsp-detail-title {
+.dsp-bar-title {
   flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-secondary, #e6e8eb);
   font-family: var(--dsw-font-family-code, Consolas, 'Cascadia Mono', monospace);
 }
-.dsp-detail-size { flex: none; font-size: 11px; color: var(--dsw-alias-label-dimmed, #8a8f98); }
-.dsp-detail-body { flex: 1; min-height: 0; overflow: auto; padding: 16px 18px; }
-.dsp-mediawrap { display: flex; align-items: center; justify-content: center; min-height: 200px; height: 100%; }
-.dsp-media { display: block; max-width: 100%; max-height: 100%; margin: 0 auto; object-fit: contain; }
-.dsp-frame { width: 100%; height: 100%; border: 0; background: #fff; border-radius: 6px; }
-.dsp-code {
-  margin: 0; font-family: var(--dsw-font-family-code, Consolas, 'Cascadia Mono', monospace);
-  font-size: 12.5px; line-height: 1.55; white-space: pre; overflow: auto;
+.dsp-bar-size { flex: none; font-size: 11px; color: var(--dsw-alias-label-dimmed, #8a8f98); }
+.dsp-copy {
+  flex: none; border: 1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.12));
+  background: transparent; color: var(--dsw-alias-label-secondary, #666);
+  cursor: pointer; padding: 3px 12px; border-radius: 6px; font-size: 12px;
+}
+.dsp-copy:hover { background: var(--dsw-alias-interactive-bg-hover-solid, rgba(127,127,127,.16)); color: var(--dsw-alias-label-primary, #1a1a1a); }
+.dsp-detail-body { flex: 1; min-height: 0; overflow: auto; }
+/* Markdown 左右分屏 */
+.dsp-split { display: flex; flex: 1; min-height: 0; }
+.dsp-split-src {
+  flex: 0 0 44%; min-width: 0; overflow: auto;
+  border-right: 1px solid var(--dsw-alias-border-l2, #2a2c30);
+}
+.dsp-split-preview { flex: 1; min-width: 0; overflow: auto; }
+.dsp-mdwrap { padding: 18px 26px 28px; font-size: 14px; line-height: 1.7; color: var(--dsw-alias-label-primary, #f2f3f5); }
+.dsp-src {
+  margin: 0; padding: 14px 20px 20px;
+  font-family: var(--dsw-font-family-code, Consolas, 'Cascadia Mono', monospace);
+  font-size: 12.5px; line-height: 1.6; white-space: pre-wrap; word-break: break-all;
   color: var(--dsw-alias-label-secondary, #e6e8eb);
 }
-.dsp-md { font-size: 14px; line-height: 1.7; max-width: 860px; color: var(--dsw-alias-label-primary, #f2f3f5); }
-.dsp-md h1, .dsp-md h2, .dsp-md h3, .dsp-md h4 { margin: 1.2em 0 .5em; line-height: 1.3; }
-.dsp-md h1 { font-size: 1.6em; } .dsp-md h2 { font-size: 1.35em; } .dsp-md h3 { font-size: 1.15em; }
-.dsp-md p { margin: .6em 0; }
-.dsp-md code { font-family: var(--dsw-font-family-code, Consolas, monospace); font-size: .88em; background: var(--dsw-alias-bg-base, #101113); padding: 1px 5px; border-radius: 4px; }
-.dsp-md pre { background: var(--dsw-alias-bg-base, #101113); border: 1px solid var(--dsw-alias-border-l2, #2a2c30); border-radius: 8px; padding: 12px 14px; overflow: auto; }
-.dsp-md pre code { background: none; padding: 0; }
-.dsp-md blockquote { border-left: 3px solid var(--dsw-static-deepseek-400, #679efe); margin: .7em 0; padding: 2px 14px; color: var(--dsw-alias-label-tertiary, #b7bcc4); }
-.dsp-md ul, .dsp-md ol { padding-left: 1.4em; margin: .6em 0; }
-.dsp-md a { color: var(--dsw-static-deepseek-400, #679efe); }
-.dsp-md img { max-width: 100%; }
-.dsp-md hr { border: 0; border-top: 1px solid var(--dsw-alias-border-l2, #2a2c30); margin: 1.2em 0; }
+.dsp-readwrap { padding: 8px 0; }
+.dsp-mediawrap { display: flex; align-items: center; justify-content: center; min-height: 200px; height: 100%; padding: 18px; }
+.dsp-media { display: block; max-width: 100%; max-height: 100%; margin: 0 auto; object-fit: contain; }
+.dsp-frame { width: 100%; height: 100%; border: 0; background: #fff; }
 .dsp-status { color: var(--dsw-alias-label-dimmed, #8a8f98); padding: 28px 0; text-align: center; font-size: 13px; }
 .dsp-error { color: var(--dsw-alias-state-error-primary, #f14c4c); }
 .dsp-other { text-align: center; padding: 36px 0; }
@@ -551,18 +539,18 @@ window.__ModuleLoader__.load({
 .dsp-download:hover { filter: brightness(1.06); }
 /* 覆盖层面板 */
 .dsp-overlay {
-  position: absolute; inset: 0; background: rgba(0, 0, 0, .35);
+  position: absolute; inset: 0; background: rgba(0, 0, 0, .4);
   display: flex; align-items: center; justify-content: center; padding: 40px;
 }
 .dsp-overlay-panel {
-  width: min(920px, 100%); height: min(640px, 100%);
-  background: var(--dsw-alias-bg-base, #101113);
+  width: min(1040px, 100%); height: min(720px, 100%);
+  background: var(--dsw-alias-bg-layer-1, #17181b);
   border: 1px solid var(--dsw-alias-border-l2, #2a2c30);
-  border-radius: 12px; box-shadow: 0 18px 60px rgba(0, 0, 0, .45);
+  border-radius: 14px; box-shadow: 0 24px 80px rgba(0, 0, 0, .55);
   display: flex; flex-direction: column; overflow: hidden;
 }
-.dsp-overlay-head { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-bottom: 1px solid var(--dsw-alias-border-l2, #2a2c30); flex: none; }
-.dsp-overlay-title { font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-secondary, #e6e8eb); flex: 1; }
+.dsp-overlay-head { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--dsw-alias-border-l2, #2a2c30); flex: none; }
+.dsp-overlay-title { font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-primary, #f2f3f5); flex: 1; }
 .dsp-overlay-close {
   background: transparent; border: none; color: var(--dsw-alias-label-tertiary, #b7bcc4);
   font-size: 18px; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 6px;
@@ -580,7 +568,7 @@ window.__ModuleLoader__.load({
 }
 .dsp-chip:hover { background: var(--dsw-alias-interactive-bg-hover-solid, rgba(127,127,127,.16)); color: var(--dsw-alias-label-primary, #1a1a1a); }
 /* CSV 表格 */
-.dsp-csv { overflow: auto; }
+.dsp-csv { overflow: auto; padding: 16px 22px; }
 .dsp-table { border-collapse: collapse; font-size: 12.5px; font-family: var(--dsw-font-family-code, Consolas, 'Cascadia Mono', monospace); }
 .dsp-table th, .dsp-table td {
   border: 1px solid var(--dsw-alias-border-l2, #2a2c30);
@@ -590,7 +578,7 @@ window.__ModuleLoader__.load({
 .dsp-table td { color: var(--dsw-alias-label-secondary, #e6e8eb); }
 .dsp-csv-more { padding: 10px 0 0; font-size: 12px; color: var(--dsw-alias-label-dimmed, #8a8f98); }
 /* 字体预览 */
-.dsp-font { padding: 8px 0; }
+.dsp-font { padding: 20px 26px; }
 .dsp-font-name { font-size: 12px; color: var(--dsw-alias-label-dimmed, #8a8f98); margin-bottom: 14px; font-family: var(--dsw-font-family-code, Consolas, monospace); }
 .dsp-font-specimen { line-height: 1.6; color: var(--dsw-alias-label-primary, #f2f3f5); }
 .dsp-font-big { font-size: 42px; margin-bottom: 18px; }
@@ -606,7 +594,7 @@ window.__ModuleLoader__.load({
     }
 
     // =========================================================================
-    // apply：全部注册走官方 Slot 席位 + 官方回合数据定义。
+    // apply：全部注册走官方 Slot 席位 + 官方回合数据定义 + 一处点击接管偏差。
     // =========================================================================
     function apply(ctx) {
       injectCss(ctx)
@@ -614,23 +602,24 @@ window.__ModuleLoader__.load({
       // 1) 回合产物数据：自注册 ConversationNodeDefinition（官方机制）。
       ctx.uiConversation.events.register(producedDefinition)
 
-      // 2) 「预览」视图 tab（官方视图席位）。
-      ctx.slots.inject('conversation.view', () => ctx.slots.register(
-        { name: 'conversation.view', id: 'preview', order: 20, label: () => '预览' },
-        () => React.createElement(PreviewView),
-      ))
-
-      // 3) turnTail 链：本回合产物 chips（官方链席位，select 认领）。
+      // 2) turnTail 链：本回合产物 chips（官方链席位，select 认领）。
       ctx.slots.inject('conversation.chat.turnTail', () => ctx.slots.register(
         { name: 'conversation.chat.turnTail', select: selectProducedFiles },
         (props) => React.createElement(PeekChips, props),
       ))
 
-      // 4) 覆盖层：预览面板（官方覆盖层席位）。
+      // 3) 覆盖层：预览面板（官方覆盖层席位）。
       ctx.slots.inject('shell.overlay', () => ctx.slots.register(
         { name: 'shell.overlay', id: 'dsh-peek-preview', order: 10 },
         () => React.createElement(PreviewOverlay),
       ))
+
+      // 4) 点击接管（约定偏差，见文件头注释）：官方 openFile 无接管钩子，
+      //    以捕获阶段监听把文件点击改为内嵌预览。
+      ctx.effect(() => {
+        document.addEventListener('click', handleDocumentClick, true)
+        return () => document.removeEventListener('click', handleDocumentClick, true)
+      }, 'dsh-peek: file-click interception')
     }
 
     exports.apply = apply

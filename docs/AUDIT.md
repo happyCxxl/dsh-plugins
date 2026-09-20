@@ -13,10 +13,10 @@
 | B3 | 🔴 | peek / terminal / ui-restyle | patch 注释与 README 示例教 `add ./plugins/<目录>`——pnpm link（Windows 即 junction）悬空陷阱 | ✅ 已改：三份 patch 注释 + 两份 README 改两通道（npm / tarball） |
 | B4 | 🟠 | 全部 | engines 口径不一；官方口径 `^22.19.0 \|\| >=24.0.0` | ✅ 已改：4 包统一官方口径；sqlite 保留 `>=22.5`（node:sqlite 硬要求，README 已说明） |
 | B5 | 🟠 | 全部 | 三种依赖策略并存且无文档 | ✅ 已改：各 README 补「依赖策略」节（sqlite=peer 复用 / peek·terminal·ui-restyle=零 import / image-reader=Config 形态） |
-| B6 | 🟠 | peek / terminal / ui-restyle | 客户端绕过 Slot 体系：猜 DOM、全局扫描、直接改 `document.head`（sqlite 面板已走 `slots.register`，此前误列，已更正） | ✅ 完成：peek / terminal 全官方化（view/overlay/turnTail + 节点定义）；ui-restyle 字体走官方 `overrideTokens`，折叠保留为**文档化约定偏差**（调研证据：data-* 层 20 发布版零破坏；接管渲染路线高风险已放弃，见其 README 脆弱面清单） |
+| B6 | 🟠 | peek / terminal / ui-restyle | 客户端绕过 Slot 体系：猜 DOM、全局扫描、直接改 `document.head`（sqlite 面板已走 `slots.register`，此前误列，已更正） | ✅ 完成：peek（浮层 + turnTail 链 + 节点定义官方化，点击接管为文档化偏差）、terminal 全官方化；ui-restyle 字体走官方 `overrideTokens`，折叠保留为**文档化约定偏差**（调研证据：data-* 层 20 发布版零破坏；接管渲染路线高风险已放弃，见其 README 脆弱面清单） |
 | B7 | 🟠 | 全部 client+host | 自建 `webServer.register` 同源路由 + fetch 是否合规 | ✅ 已解决（调研定性）：`webServer` 是公开 Service 契约，feature 插件自持路由被官方承认（README 原文 "feature plugins own every route"）；`harness.handle`/`host.call` 仅限动态插件、新增 Remote 为构建期装配，npm 插件均不可用。规范 §6/§7 已写明通道与安全边界 |
 | B8 | 🟡 | sqlite / image-reader | Host `name` 导出带 scope 全名，官方一律短名 | ✅ 已改：两处改短名（`dsh-sqlite` / `dsh-image-reader`） |
-| B9 | 🟡 | dsh-peek | 客户端按中文文案 `'预览'` 匹配 tab 并 `.click()` | ✅ 已随 peek 0.5.0 官方化重写移除：点击拦截、文案匹配、DOM 扫描、tab 标记全部删除 |
+| B9 | 🟡 | dsh-peek | 客户端按中文文案匹配 tab 点击（0.5.0 曾移除） | 🟡 重定（0.5.1）：「预览」tab 已删除——预览与官方一致走 `shell.overlay` 浮层；点击接管作为文档化约定偏差恢复（官方 openFile 无接管钩子；data-* 层 20 发布版零破坏） |
 | B10 | 🟡 | 全部 | description 语言混用 | ✅ 已改：统一中文 |
 | B11 | 🟡 | ui-restyle | 缺 `repository`；误跟踪 `pnpm-lock.yaml`；字体重复 | ✅ 已改：补 repository、移除 pnpm-lock；`design/fonts/` 保留（原型 HTML 自包含引用 `./fonts/`，不属发布物） |
 | B12 | 🟡 | dsh-sqlite | `scripts/` 未挂接、无说明 | ✅ 已改：`smoke.mjs` 接线为 `npm run smoke`（有 PASS/FAIL 断言与退出码）；`noise-check.mjs` 删除（一次性实验，结论已在 DESIGN.md） |
@@ -29,7 +29,7 @@
 - **Step 0 — 立契约（已完成）**：契约文档 PLUGIN_SPEC.md + 本清单。
 - **Step 1 — 发布闭环**：B3 ✅；B1、B2 ⏸（发布动作用户决定延后，届时按 §8 流程执行）。
 - **Step 2 — 元数据统一（已完成）**：B4 / B5 / B8 / B10 / B11 / B15 全部清零。
-- **Step 3 — 客户端 Slot 化（已完成）**：B7 ✅ 定性、B9 ✅ 移除；peek（0.5.0）、terminal（0.2.0）全官方化；ui-restyle（0.4.0）字体官方化 + 折叠保留为文档化约定偏差（接管路线经调研为高风险，放弃）。
+- **Step 3 — 客户端 Slot 化（已完成）**：B7 ✅ 定性、B9 🟡 重定（peek 0.5.1 去 tab 留浮层 + 点击接管为文档化偏差）；peek（0.5.1）、terminal（0.2.0）官方化；ui-restyle（0.4.0）字体官方化 + 折叠保留为文档化约定偏差（接管路线经调研为高风险，放弃）。
 - **Step 4 — 验证闭环（待做）**：B14 剩余（tag/发布纪律，随发布执行）+ 5 包干净 profile 冒烟（复用 `npm run smoke` 与社区 `dsh-plugin-dev check/verify`）。
 
 每步纪律：改代码 + 同一 commit 更新对应文档（契约改 `docs/PLUGIN_SPEC.md`，目录结构改 `README.md` 总览表）；修完 AUDIT 条目勾选并记 commit。
@@ -38,5 +38,5 @@
 
 - B3 / B4 / B5 / B8 / B10 / B11 / B12 / B13 / B15 ✅ 本批整改（非逻辑类，未改任何运行行为；commit 见 git log）。
 - B14（CHANGELOG 部分）✅ 本批：5 包 CHANGELOG.md 从 git 历史回溯补齐并加入 files 白名单；tag/发布纪律待发布时执行。
-- B7 ✅ 调研定性为官方契约（webServer.register 公开 Service），规范 §6/§7 已写明；B9 ✅ 随 peek 0.5.0 重写移除；B6 ✅ peek/terminal 全官方化，ui-restyle（0.4.0）字体官方化 + 折叠为文档化约定偏差。
+- B7 ✅ 调研定性为官方契约（webServer.register 公开 Service），规范 §6/§7 已写明；B9 🟡 重定（peek 0.5.1：去「预览」tab 与官方一致走浮层，点击接管为文档化偏差）；B6 ✅ peek/terminal 官方化（peek 点击接管除外），ui-restyle（0.4.0）字体官方化 + 折叠为文档化约定偏差。
 - B1 / B2 ⏸ 暂缓（发布延后）。
