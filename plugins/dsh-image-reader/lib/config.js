@@ -1,13 +1,11 @@
 // config.js — 配置契约：默认转述指令与 schemastery Config（经 index.js 对外导出）。
 import z from '@deepseek-ai/schemastery'
 
-export const DEFAULT_INSTRUCTION = [
-  '你是图片转文字服务。接收方是一个纯文本模型，看不到图片。',
-  '请输出一段客观、完整、信息密度高的中文转述，覆盖：',
-  '1) 图中所有可见文字，逐字照抄；2) 整体布局与结构；',
-  '3) 关键对象、人物、颜色、图标、UI 元素、图表及其数据；4) 其他重要细节。',
-  '只输出转述本身，不要前言、不要寒暄、不要提问。',
-].join('\n')
+export const DEFAULT_INSTRUCTION = `你是图片转文字服务。接收方是一个纯文本模型，看不到图片。
+请输出一段客观、完整、信息密度高的中文转述，覆盖：
+1) 图中所有可见文字，逐字照抄；2) 整体布局与结构；
+3) 关键对象、人物、颜色、图标、UI 元素、图表及其数据；4) 其他重要细节。
+只输出转述本身，不要前言、不要寒暄、不要提问。`
 
 export const Config = z.object({
   provider: z.string().default('deepseek-official')

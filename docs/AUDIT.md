@@ -19,7 +19,7 @@
 | B9 | 🟡 | dsh-peek | 客户端按中文文案匹配 tab 点击（0.5.0 曾移除） | ✅ 定案（0.5.3）：「预览」tab 已删除——预览与官方一致走 `shell.overlay` 浮层；点击接管作为**文档化约定偏差**实现并文档化（官方 openFile 无接管钩子；data-* 层 20 发布版零破坏；浏览器实测通过） |
 | B10 | 🟡 | 全部 | description 语言混用 | ✅ 已改：统一中文 |
 | B11 | 🟡 | ui-restyle | 缺 `repository`；误跟踪 `pnpm-lock.yaml`；字体重复 | ✅ 已改：补 repository、移除 pnpm-lock；`design/fonts/` 保留（原型 HTML 自包含引用 `./fonts/`，不属发布物） |
-| B12 | 🟡 | dsh-sqlite | `scripts/` 未挂接、无说明 | ✅ 已改：`smoke.mjs` 接线为 `npm run smoke`（有 PASS/FAIL 断言与退出码）；`noise-check.mjs` 删除（一次性实验，结论已在 DESIGN.md） |
+| B12 | 🟡 | dsh-sqlite | `scripts/` 未挂接、无说明 | ✅ 已改：`smoke.mjs` 接线为 `npm run smoke`（有 PASS/FAIL 断言与退出码）；`noise-check.mjs` 删除（一次性实验） |
 | B13 | 🟡 | sqlite | README 缺「权限与副作用」节 | ✅ 已改：sqlite 补节（权限=读写 `~/.dsh/data/*.db` 无网络；副作用=提示词规则/只读路由/协作观察/停用回收）。peek/terminal/image-reader/ui-restyle 原有节已覆盖，无需改 |
 | B14 | 🟡 | 全部 | 无 tag 纪律 | ✅ 定案：CHANGELOG 不做（用户决定，版本演变以 git 历史为准）；tag/发布纪律随发布执行 |
 | B15 | 🟡 | 全部 | 5 个包都缺 `publishConfig.access: "public"`（规范 §3，官方包先例都有） | ✅ 已改：全部补齐 |

@@ -69,7 +69,7 @@ function registerPanelRoutes(ctx) {
 }
 
 // v1.2：常驻短规则注入——把"持久化场景 → sqlite 工具"的触发率推向接近确定。
-// 机制依据：官方 dsh-plan-mode 的 systemPrompt.section 先例（DESIGN.md 第 14 节）。
+// 机制依据：官方 dsh-plan-mode 的 systemPrompt.section 先例。
 function registerPersistenceRule(ctx) {
   const dispose = ctx.systemPrompt.section({
     name: 'dsh-sqlite:persistence-rule',
@@ -80,7 +80,7 @@ function registerPersistenceRule(ctx) {
   ctx.effect(() => dispose, 'dsh-sqlite persistence rule')
 }
 
-// v2：跨会话协作感知（DESIGN.md 第 15 节）。观察者语义：绝不修改执行链路。
+// v2：跨会话协作感知。观察者语义：绝不修改执行链路。
 function registerCoordination(ctx) {
   const coord = createCoordination()
   const names = new Set()

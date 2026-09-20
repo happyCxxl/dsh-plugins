@@ -23,8 +23,7 @@ plugins/<npm包名>/
 ├── lib/index.js       # Host 端入口（必须有；纯 UI 插件可为最小 apply）
 ├── lib/client.js      # Web 端入口（声明 dsh.client 时必须有）
 ├── README.md          # 用途、安装（三通道）、权限清单、副作用、Compatibility 表
-├── LICENSE            # MIT
-└── DESIGN.md          # 复杂插件写：设计、依赖策略选择理由
+└── LICENSE            # MIT
 ```
 
 - 多模块拆 `lib/`，`index.js` 保持薄入口。
@@ -48,7 +47,7 @@ plugins/<npm包名>/
 | `publishConfig.access` | `"public"` |
 | `keywords` / `license` / `repository` | 含 `dsh-plugin`；MIT；repository 带 `directory` |
 
-### 3.1 依赖策略（三形态，选一个写进 DESIGN.md/README）
+### 3.1 依赖策略（三形态，选一个在 README 说明）
 
 1. **peer 复用形态**：需要 harness 包的运行时值（如 `@deepseek-ai/dsh-tools` 的 `defineTool`）→ 把 cordis / dsh-tools / dsh-llm 声明为 `peerDependencies`。profile 解析会把 peer 也纳入模块闭包且不自动安装，因此 peer 会解析到 harness 自带实例而不是新装一份。peer 版本范围必须覆盖当前 harness 自带的版本（当前：cordis 4.0.2、schemastery 3.18.2）。进程内出现两份 cordis/dsh-tools 会因 Symbol key 不匹配静默 crash；peer 警告属预期，不要为消除警告写 dependencies。
 2. **零 harness import 形态**：只用 Node 内置模块 + `ctx` 注入服务，不 import 任何 harness 包。省心、天然规避双实例，代价是拿不到类型级 API。
