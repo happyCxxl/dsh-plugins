@@ -21,7 +21,7 @@
 | B11 | 🟡 | ui-restyle | 缺 `repository`；误跟踪 `pnpm-lock.yaml`；字体重复 | ✅ 已改：补 repository、移除 pnpm-lock；`design/fonts/` 保留（原型 HTML 自包含引用 `./fonts/`，不属发布物） |
 | B12 | 🟡 | dsh-sqlite | `scripts/` 未挂接、无说明 | ✅ 已改：`smoke.mjs` 接线为 `npm run smoke`（有 PASS/FAIL 断言与退出码）；`noise-check.mjs` 删除（一次性实验，结论已在 DESIGN.md） |
 | B13 | 🟡 | sqlite | README 缺「权限与副作用」节 | ✅ 已改：sqlite 补节（权限=读写 `~/.dsh/data/*.db` 无网络；副作用=提示词规则/只读路由/协作观察/停用回收）。peek/terminal/image-reader/ui-restyle 原有节已覆盖，无需改 |
-| B14 | 🟡 | 全部 | 无 CHANGELOG、无 tag 纪律 | 🟡 部分完成：5 包 CHANGELOG.md 已补（历史回溯 + 未发布标注）；tag/发布纪律随发布执行 |
+| B14 | 🟡 | 全部 | 无 tag 纪律 | ✅ 定案：CHANGELOG 不做（用户决定，版本演变以 git 历史为准）；tag/发布纪律随发布执行 |
 | B15 | 🟡 | 全部 | 5 个包都缺 `publishConfig.access: "public"`（规范 §3，官方包先例都有） | ✅ 已改：全部补齐 |
 
 ## 整改路线
@@ -37,7 +37,7 @@
 ## 完成记录
 
 - B3 / B4 / B5 / B8 / B10 / B11 / B12 / B13 / B15 ✅ 本批整改（非逻辑类，未改任何运行行为；commit 见 git log）。
-- B14（CHANGELOG 部分）✅ 本批：5 包 CHANGELOG.md 从 git 历史回溯补齐并加入 files 白名单；tag/发布纪律待发布时执行。
+- B14 ✅ 定案：不做 CHANGELOG（版本演变以 git 历史为准，用户决定）；tag 纪律随发布执行。
 - B7 ✅ 调研定性为官方契约（webServer.register 公开 Service），规范 §6/§7 已写明；B9 ✅ 定案（peek 0.5.3：去「预览」tab 与官方一致走浮层，点击接管为文档化偏差）；B6 ✅ peek/terminal 官方化（peek 点击接管除外），ui-restyle（0.4.0）字体官方化 + 折叠为文档化约定偏差。
 - 浏览器实测（2026-09-20）✅：peek 0.5.3（浮层预览 / 分屏 / ReadBlock 高亮 / 点击接管）、terminal 0.2.1（按会话隔离 PTY，cwd 跟随工作区）、ui-restyle 0.4.0（字体 / 折叠）、dsh-sqlite（面板 / 工具）、dsh-image-reader（发图读图回归）全部通过。
 - B1 / B2 ⏸ 暂缓（发布由用户自行执行，届时按规范 §8）。

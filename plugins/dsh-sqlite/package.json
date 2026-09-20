@@ -21,8 +21,7 @@
     "lib/client.js",
     "cordis.patch.yml",
     "README.md",
-    "LICENSE",
-    "CHANGELOG.md"
+    "LICENSE"
   ],
   "engines": {
     "node": ">=22.5"

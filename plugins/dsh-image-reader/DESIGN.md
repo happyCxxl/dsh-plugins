@@ -105,7 +105,7 @@ v3 与 `dsh-vision`（oil-oil）的「替换适配器」一致：透明、不加
 
 ### 5.3 参考实现
 
-见 `lib/index.js`（全量，含 `resolveModel` 与 `prepareCall` 的包装）。
+见 `lib/index.js`（适配器包装，含 `resolveModel` 与 `prepareCall`）与 `lib/transcribe.js`（转述管线）、`lib/config.js`（配置契约）。
 
 ---
 
@@ -115,7 +115,9 @@ v3 与 `dsh-vision`（oil-oil）的「替换适配器」一致：透明、不加
 plugins/dsh-image-reader/
 ├── package.json      # dsh.bundle.patch；peerDependencies 仅 schemastery
 ├── cordis.patch.yml  # 只 insert 一行
-├── lib/index.js      # 透明适配器包装
+├── lib/index.js      # 入口：透明适配器包装（resolveModel / prepareCall）
+├── lib/config.js     # Config 契约与默认转述指令
+├── lib/transcribe.js # 转述管线：探测图片块 / 调视觉模型 / 替换消息内容
 ├── README.md
 ├── LICENSE
 └── DESIGN.md

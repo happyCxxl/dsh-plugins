@@ -1,6 +1,6 @@
 {
   "name": "@cxxl/dsh-image-reader",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publishConfig": {
     "access": "public"
   },
@@ -14,10 +14,11 @@
   },
   "files": [
     "lib/index.js",
+    "lib/config.js",
+    "lib/transcribe.js",
     "cordis.patch.yml",
     "README.md",
-    "LICENSE",
-    "CHANGELOG.md"
+    "LICENSE"
   ],
   "engines": {
     "node": "^22.19.0 || >=24.0.0"

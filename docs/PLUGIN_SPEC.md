@@ -113,7 +113,7 @@ plugins/<npm包名>/
 
 ## 8. 发布流程
 
-1. bump `version`（semver）并更新本插件 `CHANGELOG.md`；发布成功后打 git tag（如 `@cxxl/dsh-<名>@<版本>`），确保仓库版本 = npm 版本。
+1. bump `version`（semver）；发布成功后打 git tag（如 `@cxxl/dsh-<名>@<版本>`），确保仓库版本 = npm 版本。
 2. `npm publish --access public`；`prepublishOnly` 自动跑 `check-publish-files.mjs`。
 3. **干净 profile 冒烟**：临时 `DSH_HOME` 下 `dsh plugin --profile <临时名> add <tgz>` → 重启 → 自测 → `remove`。
 4. 三通道至少实测一种：npm 名 / `github:user/repo#sha` / tarball。
