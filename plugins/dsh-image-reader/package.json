@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "description": "让纯文本会话模型也能读取用户上传的图片——注册一条声明图片能力的新路由，在适配器层把图片交给视觉模型转成文字，再委托给纯文本 DeepSeek。",
+  "description": "让纯文本会话模型也能读取用户上传的图片——包装原生 deepseek-official 适配器：声明图片输入能力放行附件，把图片交给视觉模型转成文字，再委托给纯文本 DeepSeek。",
   "type": "module",
   "main": "lib/index.js",
   "exports": {

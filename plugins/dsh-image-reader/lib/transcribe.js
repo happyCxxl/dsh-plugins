@@ -83,6 +83,7 @@ async function transcribeBlocks(ctx, config, blocks, signal, counter) {
         const text = await transcribeImage(ctx, config, block.attachment, signal)
         out.push({ type: 'text', text: `${config.marker}\n${text}` })
       } catch (error) {
+        // fail-open：读图失败用占位文本继续，不因视觉服务异常丢失消息。
         const reason = error instanceof Error ? error.message : String(error)
         ctx.logger?.warn(`dsh-image-reader: 读图失败，已用占位文本继续：${reason}`)
         out.push({ type: 'text', text: `${config.marker}\n[图片读取失败：${reason.slice(0, 200)}]` })
