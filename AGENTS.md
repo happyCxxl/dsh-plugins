@@ -7,7 +7,7 @@
 - `docs/PLUGIN_SPEC.md` — 插件开发规范（契约，应然）：目录结构、package.json / cordis.patch.yml / Host / Client 契约、发布与验证流程。改代码前必读；改动涉及契约时必须同步更新它。
 - `docs/AUDIT.md` — 现状偏差与整改路线（实然）：B1–B14 偏差清单 + Step 1–4 路线；修完一条勾一条。
 - `README.md` — 仓库总览（含目录结构表）；`plugins/<pkg>/README.md` — 单个插件的用途与设计。
-- Harness 权威文档（只读参考，不要改）：`D:\application\dsh\deepseek-harness\docs\cordis-primer.md`、`docs\cordis-api\`、`docs\cookbook\`。
+- Harness 权威文档（只读参考，不要改）：`D:\dsh\deepseek-harness\docs\cordis-primer.md`、`docs\subsystems\`、`docs\capabilities\`。
 
 ## 常驻铁律
 
